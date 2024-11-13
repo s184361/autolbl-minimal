@@ -5,108 +5,27 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import re
-<<<<<<< HEAD
-=======
 import yaml
 
 # Print the version of the supervision package
 print("Supervision version:", sv.__version__)
->>>>>>> 8cb8b88 (added evaluation)
 
 # %%
 HOME = os.getcwd()
 ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/dataset/train/labels"
 IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
 DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
-<<<<<<< HEAD
-GT_SEMANTIC_MAP_PATH = f"{HOME}/data/SemanticMaps"
-SMS_PATH = f"{HOME}/data/Semantic Map Specification.txt"
-# %%
-image_path = f"{HOME}/dataset/images/100000000.jpg"
-image = cv2.imread(image_path)
-if image is None:
-    raise FileNotFoundError(f"Image not found at path: {image_path}")
-
-# Load dataset
-=======
 
 # GT data
-GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/data/BoudingBoxes"
-GT_IMAGES_DIRECTORY_PATH = f"{HOME}/images"
-GT_DATA_YAML_PATH = f"{HOME}/data/data.yaml"
+GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/GT_WOOD/train/labels"
+GT_IMAGES_DIRECTORY_PATH = f"{HOME}/GT_WOOD/train/images"
+GT_DATA_YAML_PATH = f"{HOME}/GT_WOOD/data.yaml"
 # %% Load SAM labels
->>>>>>> 8cb8b88 (added evaluation)
 dataset = sv.DetectionDataset.from_yolo(
     images_directory_path=IMAGES_DIRECTORY_PATH,
     annotations_directory_path=ANNOTATIONS_DIRECTORY_PATH,
     data_yaml_path=DATA_YAML_PATH,
 )
-<<<<<<< HEAD
-# %%
-
-
-with open("data/Semantic Map Specification.txt", "r") as file:
-    content = file.read()
-names = re.findall(r"name=([^\n]+)", content)
-# %%
-# load BB from data/Bounding Boxes/100000000_anno.txt
-def read_labels_and_bboxes(file_path: str):
-    labels_and_bboxes = []
-    with open(file_path, "r") as file:
-        for line in file:
-            parts = line.strip().split()
-            if len(parts) == 5:
-                label = parts[0]
-                bbox = list(map(float, parts[1:]))
-                labels_and_bboxes.append([label] + bbox)
-    return np.array(labels_and_bboxes)
-
-
-# Example usage
-file_path = "data/Bounding Boxes/100000000_anno.txt"
-labels_and_bboxes = read_labels_and_bboxes(file_path)
-print(labels_and_bboxes)
-#%%
-# Get detections
-detections = dataset.annotations[
-    "/zhome/4a/b/137804/Desktop/autolbl/dataset/train/images/100000000.jpg"
-]
-
-
-# %%
-# Load the BMP file
-
-# Define the color to label mapping based on the provided labels
-color_to_label = {
-    (0, 255, 0): "Live_knot",
-    (255, 0, 0): "Death_know",
-    (255, 100, 0): "Knot_missing",
-    (255, 175, 0): "knot_with_crack",
-    (255, 0, 100): "Crack",
-    (100, 0, 100): "Quartzity",
-    (255, 0, 255): "resin",
-    (0, 0, 255): "Marrow",
-    (16, 255, 255): "Blue_stain",
-    (0, 64, 0): "overgrown",
-}
-# %%
-
-# Convert the image to RGB
-image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-# Prepare YOLO annotations
-height, width, _ = image.shape
-yolo_annotations = []
-
-for color, label in color_to_label.items():
-    # Create a mask for the current color
-    mask = cv2.inRange(image_rgb, np.array(color), np.array(color))
-    # show the mask matplotlib
-    plt.figure()
-    plt.imshow(mask)
-
-# %%
-=======
 # %% Update labels
 # go through all txt files in labels directory
 
@@ -172,20 +91,22 @@ for path, image, annotation in gt_dataset:
 print("Dataset images: ", image_dataset)
 print("GT images: ", image_gt_dataset)
 print("GT images not in dataset images: ", image_gt_dataset == image_dataset)
-#%%
-#sort the lists
-image_dataset.sort()
-image_gt_dataset.sort()
-print("Sorted Dataset images: ", image_dataset)
-print("Sorted GT images: ", image_gt_dataset)
-#check if image_dataset is a subset of image_gt_dataset
-print("Dataset images are a subset of GT images: ", set(image_dataset).issubset(set(image_gt_dataset)))
 # %%
 # check if dataset.images.keys() corresponds to files in dataset.images_directory_path
 for key in dataset.images.keys():
     if not os.path.exists(f"{IMAGES_DIRECTORY_PATH}/{key}"):
         print(f"File {key} not found in {IMAGES_DIRECTORY_PATH}")
 
+# %%
+"""
+# from_detections(predictions, targets, classes, conf_threshold=0.3, iou_threshold=0.5)
+IoU = np.zeros((len(gt_dataset.images), len(dataset.images)))
+for key in gt_dataset.annotations.keys():
+    key2 = key.replace(".png", ".jpg")
+    prediction = dataset.annotations[key2]
+    target = gt_dataset.annotations[key]
+    classes = dataset.classes
+"""
 
 # %% evaluate using from_detections
 
@@ -209,6 +130,31 @@ for key in gt_dataset.annotations.keys():
         print(f"Annotation in gt_dataset for {key} does not have class_id")
 
 # %%
+"""
+confusion_matrix = sv.ConfusionMatrix.from_detections(
+    predictions=dataset,
+    targets=dataset,
+    classes=dataset.classes
+)
+
+# from_detections(predictions, targets, classes, conf_threshold=0.3, iou_threshold=0.5)
+IoU = np.zeros((len(gt_dataset.images), len(dataset.classes)))
+for path, image, annotation in dataset:
+    key2 = os.path.basename(path)
+    key2 = key.replace(".jpg", ".png")
+    if key in gt_dataset.images.keys():
+        target = gt_dataset.annotations[key]
+        prediction = annotation
+        classes = dataset.classes
+        confusion_matrix = sv.ConfusionMatrix.from_detections(
+            predictions=prediction,
+            targets=target,
+            classes=classes
+        )
+    else:
+        print(f"Image {key} not found in GT dataset")
+"""
+# %%
 predictions = []
 predictions_keys = []
 targets = []
@@ -220,8 +166,8 @@ for i, (image_path, image, annotation) in enumerate(dataset):
     for j, (image_path_gt, image_gt, annotation_gt) in enumerate(gt_dataset):
         key_gt = os.path.basename(image_path_gt)
         key_gt = key_gt.replace(".png", ".jpg")
+        print(key, key_gt)
         if key == key_gt:
-            print(key, key_gt)
             targets.append(annotation_gt)
             predictions_keys.append(key)
             targets_keys.append(key_gt)
@@ -229,7 +175,7 @@ for i, (image_path, image, annotation) in enumerate(dataset):
 #%%
 confusion_matrix = sv.ConfusionMatrix.from_detections(
     predictions=predictions,
-    targets=targets,
+    targets=predictions,
     classes=dataset.classes,
     iou_threshold=0.5
 )
@@ -237,6 +183,7 @@ confusion_matrix = sv.ConfusionMatrix.from_detections(
 confusion_matrix.plot(normalize=True)
 print(confusion_matrix)
 sv.MeanAveragePrecision.from_detections(
-    predictions=predictions,
+    predictions=targets,
     targets=targets
 )
+# %%
