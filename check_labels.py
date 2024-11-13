@@ -19,6 +19,7 @@ GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/data/BoudingBoxes"
 GT_IMAGES_DIRECTORY_PATH = f"{HOME}/images"
 GT_DATA_YAML_PATH = f"{HOME}/data/data.yaml"
 # %% Load SAM labels
+# Load the dataset using YOLO format
 dataset = sv.DetectionDataset.from_yolo(
     images_directory_path=IMAGES_DIRECTORY_PATH,
     annotations_directory_path=ANNOTATIONS_DIRECTORY_PATH,
@@ -29,7 +30,9 @@ dataset = sv.DetectionDataset.from_yolo(
 
 # Load the YAML file to get the mapping of labels to numbers
 with open(GT_DATA_YAML_PATH, "r") as file:
+# Load the YAML file
     data_yaml = yaml.safe_load(file)
+# Create a mapping from label names to their corresponding indices
 label_map = {label: idx for idx, label in enumerate(data_yaml["names"])}
 
 # Directory containing the label files
@@ -55,7 +58,8 @@ for filename in os.listdir(labels_directory):
                 new_line = f"{label_number} " + " ".join(bbox) + "\n"
                 new_lines.append(new_line)
 
-        # save as txt file without _anno in the title
+        # Save as txt file without "_anno" in the title
+        # The regex pattern r"_anno" is used to remove the substring "_anno" from the filename
         new_filename = re.sub(r"_anno", "", filename)
         new_file_path = os.path.join(labels_directory, new_filename)
         with open(new_file_path, "w") as file:
@@ -68,12 +72,12 @@ gt_dataset = sv.DetectionDataset.from_yolo(
     annotations_directory_path=GT_ANNOTATIONS_DIRECTORY_PATH,
     data_yaml_path=GT_DATA_YAML_PATH,
 )
-gt_dataset
 # %%
 # compare gt classes with dataset classes
 print("GT classes: ", gt_dataset.classes)
 print("Dataset classes: ", dataset.classes)
-print("GT classes not in dataset classes: ", gt_dataset.classes == dataset.classes)
+gt_classes_not_in_dataset = set(gt_dataset.classes) - set(dataset.classes)
+print("GT classes not in dataset classes: ", gt_classes_not_in_dataset)
 # %%
 # compare dataset image.keys with gt_dataset image.keys
 print("Dataset image keys: ", dataset.images.keys())
@@ -93,11 +97,13 @@ print("Dataset images: ", image_dataset)
 print("GT images: ", image_gt_dataset)
 print("GT images not in dataset images: ", image_gt_dataset == image_dataset)
 # %%
-# check if dataset.images.keys() corresponds to files in dataset.images_directory_path
-for key in dataset.images.keys():
-    if not os.path.exists(f"{IMAGES_DIRECTORY_PATH}/{key}"):
-        print(f"File {key} not found in {IMAGES_DIRECTORY_PATH}")
-
+# check if dataset key base name is the same as gt_dataset key base name after removing extension
+for path, image, annotation in dataset:
+    key = os.path.basename(path)
+    if os.path.splitext(key)[0] not in image_gt_dataset:
+        print(f"Key {key} not in GT dataset")
+    else:
+        print(f"Key {key} in GT dataset")
 
 # %% evaluate using from_detections
 
@@ -122,23 +128,14 @@ for key in gt_dataset.annotations.keys():
 
 # %%
 predictions = []
-predictions_keys = []
 targets = []
-targets_keys = []
+gt_dict = {os.path.basename(image_path).replace(".png", ".jpg"): annotation for image_path, image, annotation in gt_dataset}
 
-for i, (image_path, image, annotation) in enumerate(dataset):
+for image_path, image, annotation in dataset:
     key = os.path.basename(image_path)
     predictions.append(annotation)
-    for j, (image_path_gt, image_gt, annotation_gt) in enumerate(gt_dataset):
-        key_gt = os.path.basename(image_path_gt)
-        key_gt = key_gt.replace(".png", ".jpg")
-        
-        if key == key_gt:
-            print(key, key_gt)
-            targets.append(annotation_gt)
-            predictions_keys.append(key)
-            targets_keys.append(key_gt)
-            break
+    if key in gt_dict:
+        targets.append(gt_dict[key])
 #%%
 confusion_matrix = sv.ConfusionMatrix.from_detections(
     predictions=predictions,
@@ -146,9 +143,10 @@ confusion_matrix = sv.ConfusionMatrix.from_detections(
     classes=dataset.classes,
     iou_threshold=0.5
 )
-#plot confusion matrix
+# Plot confusion matrix
 confusion_matrix.plot(normalize=True)
 print(confusion_matrix)
+# Calculate the mean average precision (mAP) from the detections
 sv.MeanAveragePrecision.from_detections(
     predictions=predictions,
     targets=targets
