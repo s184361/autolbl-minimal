@@ -351,5 +351,11 @@ MigrationBackup/
 data/
 images/
 .venv/
+<<<<<<< HEAD
 dataset/
 GT_WOOD/
+=======
+.vscode/
+dataset/
+.runs/
+>>>>>>> 8cb8b88 (added evaluation)
