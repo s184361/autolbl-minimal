@@ -240,5 +240,3 @@ sv.MeanAveragePrecision.from_detections(
     predictions=predictions,
     targets=targets
 )
-# %%
->>>>>>> 8cb8b88 (added evaluation)
