@@ -1,9 +1,7 @@
 # %%
 import supervision as sv
 import os
-import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import re
 import yaml
 
@@ -17,9 +15,9 @@ IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
 DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
 
 # GT data
-GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/GT_WOOD/train/labels"
-GT_IMAGES_DIRECTORY_PATH = f"{HOME}/GT_WOOD/train/images"
-GT_DATA_YAML_PATH = f"{HOME}/GT_WOOD/data.yaml"
+GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/data/BoudingBoxes"
+GT_IMAGES_DIRECTORY_PATH = f"{HOME}/images"
+GT_DATA_YAML_PATH = f"{HOME}/data/data.yaml"
 # %% Load SAM labels
 dataset = sv.DetectionDataset.from_yolo(
     images_directory_path=IMAGES_DIRECTORY_PATH,
@@ -88,6 +86,9 @@ for path, image, annotation in dataset:
     image_dataset.append(os.path.splitext(os.path.basename(path))[0])
 for path, image, annotation in gt_dataset:
     image_gt_dataset.append(os.path.splitext(os.path.basename(path))[0])
+#sort lists
+image_dataset.sort()
+image_gt_dataset.sort()
 print("Dataset images: ", image_dataset)
 print("GT images: ", image_gt_dataset)
 print("GT images not in dataset images: ", image_gt_dataset == image_dataset)
@@ -97,16 +98,6 @@ for key in dataset.images.keys():
     if not os.path.exists(f"{IMAGES_DIRECTORY_PATH}/{key}"):
         print(f"File {key} not found in {IMAGES_DIRECTORY_PATH}")
 
-# %%
-"""
-# from_detections(predictions, targets, classes, conf_threshold=0.3, iou_threshold=0.5)
-IoU = np.zeros((len(gt_dataset.images), len(dataset.images)))
-for key in gt_dataset.annotations.keys():
-    key2 = key.replace(".png", ".jpg")
-    prediction = dataset.annotations[key2]
-    target = gt_dataset.annotations[key]
-    classes = dataset.classes
-"""
 
 # %% evaluate using from_detections
 
@@ -130,31 +121,6 @@ for key in gt_dataset.annotations.keys():
         print(f"Annotation in gt_dataset for {key} does not have class_id")
 
 # %%
-"""
-confusion_matrix = sv.ConfusionMatrix.from_detections(
-    predictions=dataset,
-    targets=dataset,
-    classes=dataset.classes
-)
-
-# from_detections(predictions, targets, classes, conf_threshold=0.3, iou_threshold=0.5)
-IoU = np.zeros((len(gt_dataset.images), len(dataset.classes)))
-for path, image, annotation in dataset:
-    key2 = os.path.basename(path)
-    key2 = key.replace(".jpg", ".png")
-    if key in gt_dataset.images.keys():
-        target = gt_dataset.annotations[key]
-        prediction = annotation
-        classes = dataset.classes
-        confusion_matrix = sv.ConfusionMatrix.from_detections(
-            predictions=prediction,
-            targets=target,
-            classes=classes
-        )
-    else:
-        print(f"Image {key} not found in GT dataset")
-"""
-# %%
 predictions = []
 predictions_keys = []
 targets = []
@@ -166,8 +132,9 @@ for i, (image_path, image, annotation) in enumerate(dataset):
     for j, (image_path_gt, image_gt, annotation_gt) in enumerate(gt_dataset):
         key_gt = os.path.basename(image_path_gt)
         key_gt = key_gt.replace(".png", ".jpg")
-        print(key, key_gt)
+        
         if key == key_gt:
+            print(key, key_gt)
             targets.append(annotation_gt)
             predictions_keys.append(key)
             targets_keys.append(key_gt)
@@ -175,7 +142,7 @@ for i, (image_path, image, annotation) in enumerate(dataset):
 #%%
 confusion_matrix = sv.ConfusionMatrix.from_detections(
     predictions=predictions,
-    targets=predictions,
+    targets=targets,
     classes=dataset.classes,
     iou_threshold=0.5
 )
@@ -183,7 +150,7 @@ confusion_matrix = sv.ConfusionMatrix.from_detections(
 confusion_matrix.plot(normalize=True)
 print(confusion_matrix)
 sv.MeanAveragePrecision.from_detections(
-    predictions=targets,
+    predictions=predictions,
     targets=targets
 )
 # %%
