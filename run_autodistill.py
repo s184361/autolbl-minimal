@@ -3,41 +3,13 @@ import os
 import re
 import torch
 import cv2
-
-try:
-    import autodistill
-    print("autodistill installed successfully.")
-except ImportError:
-    print("Failed to import autodistill.")
-
-try:
-    import autodistill_grounded_sam
-    print("autodistill-grounded-sam installed successfully.")
-except ImportError:
-    print("Failed to import autodistill-grounded-sam.")
-
-try:
-    import autodistill_yolov8
-    print("autodistill-yolov8 installed successfully.")
-except ImportError:
-    print("Failed to import autodistill-yolov8.")
-
-try:
-    import roboflow
-    print("roboflow installed successfully.")
-except ImportError:
-    print("Failed to import roboflow.")
-
-try:
-    import supervision as sv
-    print("supervision installed successfully.")
-except ImportError:
-    print("Failed to import supervision.")
+from check_labels import *
 
 from autodistill.detection import CaptionOntology
 from autodistill_grounded_sam import GroundedSAM
+from autodistill_grounding_dino import GroundingDINO
 from autodistill_yolov8 import YOLOv8
-from IPython.display import Image
+#from IPython.display import Image
 
 # Check if GPU is available
 print("CUDA available:", torch.cuda.is_available())
@@ -46,9 +18,13 @@ HOME = os.getcwd()
 print("Current working directory:", HOME)
 
 # Define paths and parameters
-VIDEO_DIR_PATH = f"{HOME}/videos"
 IMAGE_DIR_PATH = f"{HOME}/images"
-FRAME_STRIDE = 10
+ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/dataset/train/labels"
+IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
+DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
+GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/data/BoudingBoxes"
+GT_IMAGES_DIRECTORY_PATH = f"{HOME}/images"
+GT_DATA_YAML_PATH = f"{HOME}/data/data.yaml"
 
 # Display image sample
 image_paths = sv.list_files_with_extensions(
@@ -67,7 +43,7 @@ images = [cv2.imread(str(image_path)) for image_path in image_paths[:SAMPLE_SIZE
 import matplotlib.pyplot as plt
 plt.ion()
 sv.plot_images_grid(images=images, titles=titles, grid_size=SAMPLE_GRID_SIZE, size=SAMPLE_PLOT_SIZE)
-plt.savefig("sample_images_grid.png")
+plt.savefig("results/sample_images_grid.png")
 
 # Define ontology
 with open("data/Semantic Map Specification.txt", "r") as file:
@@ -75,22 +51,22 @@ with open("data/Semantic Map Specification.txt", "r") as file:
 names = re.findall(r"name=([^\n]+)", content)
 names = [name.lower().replace("_", " ") for name in names]
 
-ont_list = {(f"{name} wood defect"): name for name in names}
+#ont_list = {(f"{name} wood defect"): name for name in names}
+ont_list = {(f"{name} defect"): name for name in names}
 print(ont_list)
 ontology = CaptionOntology(ont_list)
 
 # Initiate base model and autolabel
 DATASET_DIR_PATH = f"{HOME}/dataset"
 #save copy of .bmp as .png
-import os
 
 for root, dirs, files in os.walk(IMAGE_DIR_PATH):
     for file in files:
         if file.endswith('.bmp'):
             img = cv2.imread(os.path.join(root, file))
-            cv2.imwrite(os.path.join(root, file.replace('.bmp', '.png')), img)
+            cv2.imwrite(os.path.join(root, file.replace('.bmp', '.jpg')), img)
 
-base_model = GroundedSAM(ontology=ontology)
+base_model = GroundingDINO(ontology=ontology)
 dataset = base_model.label(
     input_folder=IMAGE_DIR_PATH,
     extension=".png",
@@ -98,9 +74,9 @@ dataset = base_model.label(
 )
 
 # Display dataset sample
-ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/dataset/train/labels"
-IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
-DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
+#ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/dataset/train/labels"
+#IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
+#DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
 
 dataset = sv.DetectionDataset.from_yolo(
     images_directory_path=IMAGES_DIRECTORY_PATH,
@@ -120,15 +96,25 @@ for image_name in image_names:
     annotations = dataset.annotations[image_name]
     labels = [dataset.classes[class_id] for class_id in annotations.class_id]
     annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
-    annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations, labels=labels)
+    #annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations, labels=labels)
+    annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
     images.append(annotated_image)
 
 
 sv.plot_images_grid(images=images, titles=image_names, grid_size=SAMPLE_GRID_SIZE, size=SAMPLE_PLOT_SIZE)
 #save in high resolution
-plt.savefig("sample_annotated_images_grid.png", dpi=1200)
+plt.savefig("results/sample_annotated_images_grid.png", dpi=1200)
+
+#evaluate the dataset
+update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+compare_classes(gt_dataset, dataset)
+compare_image_keys(gt_dataset, dataset)
+evaluate_detections(dataset, gt_dataset)
+
 # Train target model - YOLOv8
 target_model = YOLOv8("yolov8n.pt")
+"""
 target_model.train(DATA_YAML_PATH, epochs=10)
 
 # Evaluate target model
@@ -136,7 +122,4 @@ Image(filename=f'{HOME}/runs/detect/train/confusion_matrix.png', width=600)
 Image(filename=f'{HOME}/runs/detect/train/results.png', width=600)
 Image(filename=f'{HOME}/runs/detect/train/val_batch0_pred.jpg', width=600)
 
-# Run Inference on a video
-#INPUT_VIDEO_PATH = TEST_VIDEO_PATHS[0]
-#OUTPUT_VIDEO_PATH = f"{HOME}/output.mp4"
-#TRAINED_MODEL_PATH = f"{HOME}/runs/detect/train/weights/best.pt"
+"""
