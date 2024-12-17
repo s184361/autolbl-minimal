@@ -2,7 +2,7 @@ from autodistill_clip import CLIP
 from autodistill.detection import CaptionOntology
 from autodistill_grounded_sam import GroundedSAM
 import supervision as sv
-from config import *
+from utils.config import *
 #from composed_detection_model import ComposedDetectionModel
 from composed_detection_model import ComposedDetectionModel2
 #from autodistill.core.composed_detection_model import ComposedDetectionModel

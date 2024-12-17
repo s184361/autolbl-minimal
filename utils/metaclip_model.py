@@ -76,10 +76,11 @@ class MetaCLIP(DetectionBaseModel):
     def embed_image(self, input: str) -> torch.Tensor:
         image = Image.open(input)
 
-        inputs = self.preprocess(images=image, return_tensors="pt", padding=True)
+        inputs = self.preprocess(images=image, return_tensors="pt", padding=True).to(DEVICE)
         # inputs = self.preprocess(image).unsqueeze(0).to(DEVICE)
         with torch.no_grad():
-            outputs = self.model.get_image_features(**inputs)
+            with torch.amp.autocast('cuda'): 
+                outputs = self.model.get_image_features(**inputs)
 
             return outputs
 

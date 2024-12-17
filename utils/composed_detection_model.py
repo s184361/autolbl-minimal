@@ -10,6 +10,7 @@ from PIL import Image
 import enum
 from autodistill.detection.detection_base_model import DetectionBaseModel
 from autodistill.helpers import load_image, split_data
+from utils.embedding_ontology import EmbeddingOntologyImage
 
 DEFAULT_LABEL_ANNOTATOR = sv.LabelAnnotator(text_position=sv.Position.CENTER)
 SET_OF_MARKS_SUPPORTED_MODELS = ["GPT4V"]
@@ -127,7 +128,7 @@ class ComposedDetectionModel2(DetectionBaseModel):
             if sahi:
                 detections = slicer(image)
             else:
-                #detections = self.predict(image)
+                # detections = self.predict(image)
                 detections = self.predict(f_path)
 
             if nms_settings == NmsSetting.CLASS_SPECIFIC:
@@ -136,9 +137,12 @@ class ComposedDetectionModel2(DetectionBaseModel):
                 detections = detections.with_nms(class_agnostic=True)
 
             detections_map[f_path] = detections
-
+        if isinstance(self.ontology, EmbeddingOntologyImage):
+            classes = self.ontology.prompts()
+        else:
+            classes = self.ontology.classes()
         dataset = sv.DetectionDataset(
-            self.ontology.classes(), image_paths, detections_map
+            classes, image_paths, detections_map
         )
 
         dataset.as_yolo(

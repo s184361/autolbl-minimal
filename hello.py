@@ -1,5 +1,10 @@
 def main():
     print("Hello from autolbl!")
+    import torch
+
+    x = torch.rand(5, 3)
+    print(x)
+    print(torch.cuda.is_available())
 
 
 if __name__ == "__main__":

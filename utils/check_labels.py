@@ -8,7 +8,7 @@ from autodistill.utils import plot
 import cv2
 from typing import List
 import pandas as pd
-
+from config import *
 
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
@@ -40,6 +40,8 @@ def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
                     label = parts[0].lower().replace("_", " ")
                     x1, y1, x2, y2 = map(float, parts[1:])
                     label_number = label_map.get(label)
+                    if label_number is None:
+                        print(label,label_map)
                     center_x = (x1 + x2) / 2
                     center_y = (y1 + y2) / 2
                     width = abs(x1 - x2)
@@ -322,6 +324,7 @@ def create_annotations_dataframe(annotations_directory_path, gt_data_yaml_path):
                             )
                         except ValueError:
                             # Skip if class name not found in class_names
+                            print(class_name,class_names)
                             continue
 
     # Create DataFrame from collected data
@@ -408,32 +411,25 @@ def convert_bmp_to_jpg(image_dir_path):
 
 
 def main():
-    HOME = os.getcwd()
-    ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/dataset/train/labels"
-    IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
-    DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
-    GT_ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/data/BoudingBoxes"
-    GT_IMAGES_DIRECTORY_PATH = f"{HOME}/images"
-    GT_DATA_YAML_PATH = f"{HOME}/data/data.yaml"
 
     print_supervision_version()
     dataset = load_dataset(
         IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
     )
-    # update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    # gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    # compare_classes(gt_dataset, dataset)
-    # compare_image_keys(gt_dataset, dataset)
-    # evaluate_detections(dataset, gt_dataset)
-    # compare_plot(dataset,gt_dataset)
-    single_annotation_files = find_single_annotation_files(
-        GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
-    )
-    print(single_annotation_files)
-    df = create_annotations_dataframe(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    print(df)
+    update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    compare_classes(gt_dataset, dataset)
+    compare_image_keys(gt_dataset, dataset)
+    evaluate_detections(dataset, gt_dataset)
+    compare_plot(dataset,gt_dataset)
+    #single_annotation_files = find_single_annotation_files(
+    #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
+    #)
+    #print(single_annotation_files)
+    #df = create_annotations_dataframe(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    #print(df)
     # print_statistics(df)
-    save_annotations(df)
+    #save_annotations(df)
     # loaded_df = load_annotations()
     # print(loaded_df)
 
