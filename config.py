@@ -17,3 +17,5 @@ DATASET_DIR_PATH = f"{HOME}/dataset"
 SAMPLE_SIZE = 6
 SAMPLE_GRID_SIZE = (3, 2)
 SAMPLE_PLOT_SIZE = (16, 16)
+
+PROMPT = "wood defect: knot, crack, resin, marrow, etc"

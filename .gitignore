@@ -356,6 +356,8 @@ GT_WOOD/
 .vscode/
 dataset/
 runs/
-.pt
+*.pt
 results/
 temp.jpeg
+*.lock
+*.toml
