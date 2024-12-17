@@ -3,7 +3,7 @@ import os
 import re
 import torch
 import cv2
-from check_labels import *
+from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 from autodistill_grounded_sam import GroundedSAM
 from autodistill_grounding_dino import GroundingDINO
@@ -11,7 +11,6 @@ from autodistill_yolov8 import YOLOv8
 import matplotlib.pyplot as plt
 from autodistill.core import EmbeddingOntologyImage
 from autodistill.core.composed_detection_model import ComposedDetectionModel
-from autodistill_clip import CLIP
 
 # from IPython.display import Image
 
@@ -124,14 +123,3 @@ compare_classes(gt_dataset, dataset)
 compare_image_keys(gt_dataset, dataset)
 evaluate_detections(dataset, gt_dataset)
 
-# Train target model - YOLOv8
-target_model = YOLOv8("yolov8n.pt")
-"""
-target_model.train(DATA_YAML_PATH, epochs=10)
-
-# Evaluate target model
-Image(filename=f'{HOME}/runs/detect/train/confusion_matrix.png', width=600)
-Image(filename=f'{HOME}/runs/detect/train/results.png', width=600)
-Image(filename=f'{HOME}/runs/detect/train/val_batch0_pred.jpg', width=600)
-
-"""
