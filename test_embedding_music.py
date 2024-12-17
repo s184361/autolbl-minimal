@@ -1,11 +1,11 @@
 # from autodistill_clip import CLIP
 # from autodistill_metaclip import MetaCLIP
-from metaclip_model import MetaCLIP
+from utils.metaclip_model import MetaCLIP
 from autodistill.detection import CaptionOntology
 from autodistill_grounding_dino import GroundingDINO
 #from autodistill.core import EmbeddingOntologyImage
-from embedding_ontology import EmbeddingOntologyImage
-from composed_detection_model import ComposedDetectionModel2
+from utils.embedding_ontology import EmbeddingOntologyImage
+from utils.composed_detection_model import ComposedDetectionModel2
 from autodistill.utils import plot
 import torch
 import open_clip
@@ -25,12 +25,12 @@ images = os.listdir(INPUT_FOLDER)
 
 # Create full paths for images
 images_to_classes = {
-    "midnights": os.path.join(INPUT_FOLDER, "IMG_9022.jpeg"),
-    "men amongst mountains": os.path.join(INPUT_FOLDER, "323601467684.jpeg"),
-    "we are": os.path.join(INPUT_FOLDER, "IMG_9056.jpeg"),
-    "oh wonder": os.path.join(INPUT_FOLDER, "Images (5).jpeg"),
-    "brightside": os.path.join(INPUT_FOLDER, "Images (4).jpeg"),
-    "tears for fears": os.path.join(INPUT_FOLDER, "Images (3).jpeg"),
+    os.path.join(INPUT_FOLDER, "IMG_9022.jpeg"): "midnights",
+    os.path.join(INPUT_FOLDER, "323601467684.jpeg"): "men amongst mountains",
+    os.path.join(INPUT_FOLDER, "IMG_9056.jpeg"): "we are",
+    os.path.join(INPUT_FOLDER, "Images (5).jpeg"): "oh wonder",
+    os.path.join(INPUT_FOLDER, "Images (4).jpeg"): "brightside",
+    os.path.join(INPUT_FOLDER, "Images (3).jpeg"): "tears for fears",
 }
 
 

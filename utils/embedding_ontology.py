@@ -7,6 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from autodistill.core.embedding_model import EmbeddingModel
 from autodistill.core.ontology import Ontology
+from tqdm import tqdm
 
 ONTOLOGY_WITH_EMBEDDINGS = [
     "EmbeddingOntologyRaw",
@@ -98,31 +99,27 @@ class EmbeddingOntologyImage(EmbeddingOntology):
 
     def process(self, model):
         results = {}
-        i = 0
-        n = len(self.embeddingMap)
-        for prompt, cls in self.embeddingMap.items():
+        #for prompt, cls in self.embeddingMap.items():
+        for prompt, cls in tqdm(self.embeddingMap.items(), total=len(self.embeddingMap)):
+
             result = []
 
             #for item in cls:
             #    result.append(model.embed_image(item))
-            result.append(model.embed_image(cls))
+            result.append(model.embed_image(prompt))
             # get average of all vectors
             #result = np.mean(result, axis=0)
 
-            results[prompt] = result
-            print(f"{i}/{n}")
-            i += 1
+            results[cls] = result
         self.embeddingMap = results
 
     def prompts(self) -> List[np.ndarray]:
         #return [prompt for prompt, _ in self.embeddingMap]
         return [prompt for prompt in self.embeddingMap.keys()]
-        #return [cls for cls in self.embeddingMap.values()]
 
     def classes(self) -> List[str]:
         #return [cls for _, cls in self.embeddingMap]
         return [cls for cls in self.embeddingMap.values()]
-        #return [prompt for prompt in self.embeddingMap.keys()]
 
 @dataclass
 class EmbeddingOntologyText(EmbeddingOntology):
