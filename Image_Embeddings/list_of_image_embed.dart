@@ -1,0 +1,10 @@
+{'live knot': '100000010_anno.txt',
+'dead knot': '100100010_anno.txt',
+ 'knot missing': '101800000_anno.txt',
+ 'knot with crack': '100000082_anno.txt',
+ 'crack': '100500053_anno.txt',
+ 'quartzity': '100000001_anno.txt',
+ 'resin': '101100021_anno.txt',
+ 'marrow': '101900001_anno.txt',
+ 'overgrown': '139100026_anno.txt',
+ 'blue stain': '144100014_anno.txt'}

@@ -7,9 +7,12 @@ import matplotlib.pyplot as plt
 from autodistill.utils import plot
 import cv2
 from typing import List
+import pandas as pd
+
 
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
+
 
 def load_dataset(images_directory_path, annotations_directory_path, data_yaml_path):
     return sv.DetectionDataset.from_yolo(
@@ -17,6 +20,7 @@ def load_dataset(images_directory_path, annotations_directory_path, data_yaml_pa
         annotations_directory_path=annotations_directory_path,
         data_yaml_path=data_yaml_path,
     )
+
 
 def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
     with open(gt_data_yaml_path, "r") as file:
@@ -40,13 +44,15 @@ def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
                     center_y = (y1 + y2) / 2
                     width = abs(x1 - x2)
                     height = abs(y1 - y2)
-                    new_line = f"{label_number} {center_x} {center_y} {width} {height}\n"
+                    new_line = (
+                        f"{label_number} {center_x} {center_y} {width} {height}\n"
+                    )
                     new_lines.append(new_line)
             new_filename = re.sub(r"_anno", "", filename)
             new_file_path = os.path.join(labels_directory, new_filename)
             with open(new_file_path, "w") as file:
                 file.writelines(new_lines)
-    
+
 
 def compare_classes(gt_dataset, dataset):
     print("GT classes: ", gt_dataset.classes)
@@ -54,9 +60,14 @@ def compare_classes(gt_dataset, dataset):
     gt_classes_not_in_dataset = set(gt_dataset.classes) - set(dataset.classes)
     print("GT classes not in dataset classes: ", gt_classes_not_in_dataset)
 
+
 def compare_image_keys(gt_dataset, dataset):
-    image_dataset = [os.path.splitext(os.path.basename(path))[0] for path, _, _ in dataset]
-    image_gt_dataset = [os.path.splitext(os.path.basename(path))[0] for path, _, _ in gt_dataset]
+    image_dataset = [
+        os.path.splitext(os.path.basename(path))[0] for path, _, _ in dataset
+    ]
+    image_gt_dataset = [
+        os.path.splitext(os.path.basename(path))[0] for path, _, _ in gt_dataset
+    ]
     image_dataset.sort()
     image_gt_dataset.sort()
     print("Dataset images: ", image_dataset)
@@ -69,15 +80,20 @@ def compare_image_keys(gt_dataset, dataset):
         else:
             print(f"Key {key} in GT dataset")
 
+
 def evaluate_detections(dataset, gt_dataset):
-    
+
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
-            dataset.annotations[key].confidence = np.ones_like(dataset.annotations[key].class_id)
+            dataset.annotations[key].confidence = np.ones_like(
+                dataset.annotations[key].class_id
+            )
     for key in gt_dataset.annotations.keys():
         for i in range(len(gt_dataset.annotations[key])):
-            gt_dataset.annotations[key].confidence = np.ones_like(gt_dataset.annotations[key].class_id)
-    #load confidence from labels confidence-annotation.txt
+            gt_dataset.annotations[key].confidence = np.ones_like(
+                gt_dataset.annotations[key].class_id
+            )
+    # load confidence from labels confidence-annotation.txt
     """ for image_path, _, annotation in dataset:
         key = os.path.basename(image_path)
         directory_path = os.path.dirname(image_path)
@@ -89,7 +105,10 @@ def evaluate_detections(dataset, gt_dataset):
             annotation[i].confidence = float(lines[i].split()[1]) """
     predictions = []
     targets = []
-    gt_dict = {os.path.basename(image_path).replace(".png", ".jpg"): annotation for image_path, _, annotation in gt_dataset}
+    gt_dict = {
+        os.path.basename(image_path).replace(".png", ".jpg"): annotation
+        for image_path, _, annotation in gt_dataset
+    }
     for image_path, _, annotation in dataset:
         key = os.path.basename(image_path)
         predictions.append(annotation)
@@ -99,16 +118,14 @@ def evaluate_detections(dataset, gt_dataset):
         predictions=predictions,
         targets=targets,
         classes=dataset.classes,
-        iou_threshold=0.5
+        iou_threshold=0.5,
     )
     fig = confusion_matrix.plot(normalize=True)
     plt.show()
     plt.savefig("results/confusion_matrix.png")
     print(confusion_matrix)
-    sv.MeanAveragePrecision.from_detections(
-        predictions=predictions,
-        targets=targets
-    )
+    sv.MeanAveragePrecision.from_detections(predictions=predictions, targets=targets)
+
 
 def plot(image: np.ndarray, detections, classes: List[str], raw=False):
     """
@@ -128,7 +145,7 @@ def plot(image: np.ndarray, detections, classes: List[str], raw=False):
     if detections.mask is not None:
         annotator = sv.MaskAnnotator()
     else:
-        #annotator = sv.BoundingBoxAnnotator()
+        # annotator = sv.BoundingBoxAnnotator()
         annotator = sv.BoxAnnotator()
     label_annotator = sv.LabelAnnotator()
 
@@ -146,7 +163,9 @@ def plot(image: np.ndarray, detections, classes: List[str], raw=False):
         return annotated_frame
 
     sv.plot_image(annotated_frame)
-def compare_plot(dataset,gt_dataset):
+
+
+def compare_plot(dataset, gt_dataset):
     img = []
     name = []
     for image_path, _, annotation in dataset:
@@ -154,31 +173,21 @@ def compare_plot(dataset,gt_dataset):
         classes = dataset.classes
         result = annotation
 
-        img.append(plot(
-        image=image,
-        classes=classes,
-        detections=result,
-        raw=True
-        ))
+        img.append(plot(image=image, classes=classes, detections=result, raw=True))
         name.append(os.path.basename(image_path))
-    
+
     for image_path, _, annotation in gt_dataset:
         classes = gt_dataset.classes
         name_gt = os.path.splitext(os.path.basename(image_path))[0] + ".jpg"
         if name_gt in name:
             image = cv2.imread(image_path)
             result = annotation
-            #check if annotation is empty
+            # check if annotation is empty
             if len(result) == 0:
-                #if empty, plot only the image
+                # if empty, plot only the image
                 img_gt = image
             else:
-                img_gt = plot(
-                image=image,
-                classes=classes,
-                detections=result,
-                raw=True
-                )
+                img_gt = plot(image=image, classes=classes, detections=result, raw=True)
 
             # Find fig index
             index = name.index(name_gt)
@@ -186,11 +195,11 @@ def compare_plot(dataset,gt_dataset):
             fig.add_subplot(2, 1, 1)
             plt.imshow(img[index])
             plt.title("Inference")
-            plt.axis('off')
+            plt.axis("off")
             fig.add_subplot(2, 1, 2)
             plt.imshow(img_gt)
             plt.title("Ground Truth")
-            plt.axis('off')
+            plt.axis("off")
 
             # Add spacing between figures
             plt.subplots_adjust(hspace=0.5)
@@ -200,7 +209,203 @@ def compare_plot(dataset,gt_dataset):
             plt.close(fig)
 
 
-    
+def find_single_annotation_files(gt_annotations_directory_path, gt_data_yaml_path):
+    """
+    Find annotation files with only one annotation and return one file per class.
+
+    Args:
+        gt_annotations_directory_path: Path to ground truth annotations directory
+        gt_data_yaml_path: Path to YAML file containing class names
+
+    Returns:
+        dict: Dictionary with class names as keys and corresponding filenames as values
+    """
+    # Load class names from YAML
+    with open(gt_data_yaml_path, "r") as file:
+        data_yaml = yaml.safe_load(file)
+    class_names = data_yaml["names"]
+
+    # Initialize dictionary to store results
+    single_annotations_per_class = {class_name: None for class_name in class_names}
+
+    # Iterate through annotation files
+    for filename in os.listdir(gt_annotations_directory_path):
+        if filename.endswith(".txt") and not filename.startswith("confidence-"):
+            file_path = os.path.join(gt_annotations_directory_path, filename)
+
+            # Read the file
+            with open(file_path, "r") as file:
+                lines = file.readlines()
+
+                # Check if file has exactly one annotation
+                if len(lines) == 1:
+                    # Parse the class name and convert to index
+                    parts = lines[0].strip().split()
+                    if (
+                        len(parts) == 5
+                    ):  # Ensure we have all 5 parts (class + 4 coordinates)
+                        class_name = parts[0].lower().replace("_", " ")
+                        try:
+                            class_id = class_names.index(class_name)
+                            # If we haven't found an example for this class yet, store it
+                            if (
+                                single_annotations_per_class[class_names[class_id]]
+                                is None
+                            ):
+                                single_annotations_per_class[class_names[class_id]] = (
+                                    filename
+                                )
+                        except ValueError:
+                            # Skip if class name not found in class_names
+                            continue
+
+    # Filter out classes with no single-annotation examples
+    result = {
+        class_name: filename
+        for class_name, filename in single_annotations_per_class.items()
+        if filename is not None
+    }
+
+    return result
+
+
+def create_annotations_dataframe(annotations_directory_path, gt_data_yaml_path):
+    """
+    Create a pandas DataFrame of annotations that can be easily queried.
+
+    Args:
+        annotations_directory_path: Path to annotations directory
+        gt_data_yaml_path: Path to YAML file containing class names
+
+    Returns:
+        pandas DataFrame containing all annotations
+    """
+    # Load class names from YAML
+    with open(gt_data_yaml_path, "r") as file:
+        data_yaml = yaml.safe_load(file)
+    class_names = data_yaml["names"]
+
+    # Initialize list to store annotation data
+    data = []
+
+    # Iterate through annotation files
+    for filename in os.listdir(annotations_directory_path):
+        if filename.endswith(".txt") and not filename.startswith("confidence-"):
+            file_path = os.path.join(annotations_directory_path, filename)
+
+            # Read the file
+            with open(file_path, "r") as file:
+                lines = file.readlines()
+
+                # Process each annotation line
+                for line in lines:
+                    parts = line.strip().split()
+                    if len(parts) == 5:  # Ensure we have all 5 parts
+                        class_name = parts[0].lower().replace("_", " ")
+                        try:
+                            class_id = class_names.index(class_name)
+                            x_center = float(parts[1])
+                            y_center = float(parts[2])
+                            width = float(parts[3])
+                            height = float(parts[4])
+
+                            data.append(
+                                {
+                                    "filename": filename,
+                                    "class_name": class_names[class_id],
+                                    "class_id": class_id,
+                                    "x_center": x_center,
+                                    "y_center": y_center,
+                                    "width": width,
+                                    "height": height,
+                                }
+                            )
+                        except ValueError:
+                            # Skip if class name not found in class_names
+                            continue
+
+    # Create DataFrame from collected data
+    df = pd.DataFrame(data)
+    return df
+
+
+def query_annotations(df, class_name=None, filename=None):
+    """
+    Query the annotations DataFrame.
+
+    Args:
+        df: pandas DataFrame containing annotations
+        class_name: Filter by class name
+        filename: Filter by filename
+
+    Returns:
+        Filtered pandas DataFrame
+    """
+    mask = pd.Series([True] * len(df))
+
+    if class_name:
+        mask &= df["class_name"] == class_name
+
+    if filename:
+        mask &= df["filename"] == filename
+
+    return df[mask]
+
+
+def save_annotations(df, csv_path="annotations.csv"):
+    """
+    Save annotations DataFrame to CSV file.
+
+    Args:
+        df: pandas DataFrame containing annotations
+        csv_path: Path where to save the CSV file
+    """
+    df.to_csv(csv_path, index=False)
+
+
+def load_annotations(csv_path="annotations.csv"):
+    """
+    Load annotations from CSV file.
+
+    Args:
+        csv_path: Path to the CSV file
+
+    Returns:
+        pandas DataFrame containing annotations
+    """
+    return pd.read_csv(csv_path)
+
+
+def print_statistics(df):
+    """
+    Print various statistics about the annotations.
+
+    Args:
+        df: pandas DataFrame containing annotations
+    """
+    print("\nDataset Statistics:")
+    print("-" * 50)
+
+    # Count of annotations per class
+    print("\nClass distribution:")
+    print(df["class_name"].value_counts())
+
+    # Count of annotations per file
+    print("\nAnnotations per file:")
+    print(df.groupby("filename").size())
+
+    # Basic statistics of bounding box dimensions
+    print("\nBounding box statistics:")
+    print(df[["width", "height"]].describe())
+
+
+def convert_bmp_to_jpg(image_dir_path):
+    for root, dirs, files in os.walk(image_dir_path):
+        for file in files:
+            if file.endswith(".bmp"):
+                img = cv2.imread(os.path.join(root, file))
+                cv2.imwrite(os.path.join(root, file.replace(".bmp", ".jpg")), img)
+
 
 def main():
     HOME = os.getcwd()
@@ -212,13 +417,26 @@ def main():
     GT_DATA_YAML_PATH = f"{HOME}/data/data.yaml"
 
     print_supervision_version()
-    dataset = load_dataset(IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH)
-    update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    #compare_classes(gt_dataset, dataset)
-    #compare_image_keys(gt_dataset, dataset)
-    evaluate_detections(dataset, gt_dataset)
-    compare_plot(dataset,gt_dataset)
+    dataset = load_dataset(
+        IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
+    )
+    # update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    # gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    # compare_classes(gt_dataset, dataset)
+    # compare_image_keys(gt_dataset, dataset)
+    # evaluate_detections(dataset, gt_dataset)
+    # compare_plot(dataset,gt_dataset)
+    single_annotation_files = find_single_annotation_files(
+        GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
+    )
+    print(single_annotation_files)
+    df = create_annotations_dataframe(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    print(df)
+    # print_statistics(df)
+    save_annotations(df)
+    # loaded_df = load_annotations()
+    # print(loaded_df)
+
 
 if __name__ == "__main__":
     main()

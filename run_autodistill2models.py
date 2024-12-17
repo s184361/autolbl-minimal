@@ -3,15 +3,22 @@ import os
 import re
 import torch
 import cv2
+import clip
+import torch
+import os
 from check_labels import *
 
 from autodistill.detection import CaptionOntology
-from autodistill_grounded_sam import GroundedSAM
+# from autodistill_grounded_sam import GroundedSAM
 from autodistill_grounding_dino import GroundingDINO
 from autodistill_yolov8 import YOLOv8
-from autodistill.core.composed_detection_model import ComposedDetectionModel
-from autodistill_clip import CLIP
-#from IPython.display import Image
+from autodistill.core.composed_detection_model import ComposedDetectionModel as CustomDetectionModel
+# from autodistill_clip import CLIP
+from autodistill_metaclip import MetaCLIP
+from PIL import Image
+
+
+# from IPython.display import Image
 
 # Check if GPU is available
 print("CUDA available:", torch.cuda.is_available())
@@ -53,46 +60,42 @@ with open("data/Semantic Map Specification.txt", "r") as file:
 names = re.findall(r"name=([^\n]+)", content)
 names = [name.lower().replace("_", " ") for name in names]
 
-#ont_list = {(f"{name} wood defect"): name for name in names}
+# ont_list = {(f"{name} wood defect"): name for name in names}
 ont_list = {(f"{name} defect"): name for name in names}
 print(ont_list)
 ontology = CaptionOntology(ont_list)
 
 # Initiate base model and autolabel
 DATASET_DIR_PATH = f"{HOME}/dataset"
-#save copy of .bmp as .png
+# save copy of .bmp as .png
 
 for root, dirs, files in os.walk(IMAGE_DIR_PATH):
     for file in files:
         if file.endswith('.bmp'):
             img = cv2.imread(os.path.join(root, file))
             cv2.imwrite(os.path.join(root, file.replace('.bmp', '.jpg')), img)
-import clip
-import torch
-from PIL import Image
-import os      
+
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
 
-samclip = ComposedDetectionModel(
-    detection_model=GroundingDINO(
-        CaptionOntology({"defect": "defect"})
-    ),
-    classification_model=CLIP(
+# First try to load CLIP model to ensure weights are available
+import open_clip
+model, _, preprocess = open_clip.create_model_and_transforms(
+    "ViT-B-32", pretrained="laion2b_s34b_b79k"
+)
+
+
+samclip = CustomDetectionModel(
+    detection_model=GroundingDINO(CaptionOntology({"defect": "defect"})),
+    classification_model=MetaCLIP(
         CaptionOntology(ont_list)
-    )
+    ),
 )
 dataset = samclip.label(
     input_folder=IMAGE_DIR_PATH,
     extension=".jpg",
     output_folder=DATASET_DIR_PATH
 )
-
-# Display dataset sample
-#ANNOTATIONS_DIRECTORY_PATH = f"{HOME}/dataset/train/labels"
-#IMAGES_DIRECTORY_PATH = f"{HOME}/dataset/train/images"
-#DATA_YAML_PATH = f"{HOME}/dataset/data.yaml"
 
 dataset = sv.DetectionDataset.from_yolo(
     images_directory_path=IMAGES_DIRECTORY_PATH,
@@ -112,16 +115,15 @@ for image_name in image_names:
     annotations = dataset.annotations[image_name]
     labels = [dataset.classes[class_id] for class_id in annotations.class_id]
     annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
-    #annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations, labels=labels)
     annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
     images.append(annotated_image)
 
 
 sv.plot_images_grid(images=images, titles=image_names, grid_size=SAMPLE_GRID_SIZE, size=SAMPLE_PLOT_SIZE)
-#save in high resolution
+# save in high resolution
 plt.savefig("results/sample_annotated_images_grid.png", dpi=1200)
 
-#evaluate the dataset
+# evaluate the dataset
 update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
 gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
 compare_classes(gt_dataset, dataset)
