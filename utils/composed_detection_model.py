@@ -49,7 +49,10 @@ class ComposedDetectionModel2(DetectionBaseModel):
         Returns:
             detections (sv.Detections)
         """
-        opened_image = Image.open(image)
+        if isinstance(image, Image.Image):
+            opened_image = image  # If it's already a PIL image, use it directly
+        else:
+            opened_image = Image.open(image)
 
         detections = self.detection_model.predict(image)
 
@@ -124,12 +127,13 @@ class ComposedDetectionModel2(DetectionBaseModel):
         for f_path in progress_bar:
             progress_bar.set_description(desc=f"Labeling {f_path}", refresh=True)
 
-            image = cv2.imread(f_path)
+            #image = cv2.imread(f_path)
+            image = Image.open(f_path)
             if sahi:
                 detections = slicer(image)
             else:
-                # detections = self.predict(image)
-                detections = self.predict(f_path)
+                detections = self.predict(image)
+                #detections = self.predict(f_path)
 
             if nms_settings == NmsSetting.CLASS_SPECIFIC:
                 detections = detections.with_nms()

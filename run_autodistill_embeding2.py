@@ -6,8 +6,7 @@ import supervision as sv
 import matplotlib.pyplot as plt
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
-from autodistill_grounded_sam import GroundedSAM
-from utils.composed_detection_model import ComposedDetectionModel2
+from utils.grounding_dino_model import GroundingDINO
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model import MetaCLIP
 from utils.config import *
@@ -73,7 +72,6 @@ def main():
 
     # Create embedding ontology and models
     img_emb = EmbeddingOntologyImage(images_to_classes)
-    class_model = MetaCLIP(img_emb)
 
     # Initiate base model and autolabel
     DATASET_DIR_PATH = f"{HOME}/dataset"
@@ -81,10 +79,7 @@ def main():
     convert_bmp_to_jpg(IMAGE_DIR_PATH)
 
     # Create a combined model that uses both GroundingDINO for detection and MetaCLIP for classification
-    model = ComposedDetectionModel2(
-        detection_model=GroundedSAM(CaptionOntology({PROMPT: PROMPT})),
-        classification_model=class_model,
-    )
+    model = GroundingDINO(ontology=img_emb)
 
     # Label dataset
     dataset = model.label(

@@ -8,7 +8,6 @@ from autodistill.utils import plot
 import cv2
 from typing import List
 import pandas as pd
-from config import *
 
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
@@ -410,6 +409,88 @@ def convert_bmp_to_jpg(image_dir_path):
                 cv2.imwrite(os.path.join(root, file.replace(".bmp", ".jpg")), img)
 
 
+def load_images_and_annotations(images_dir, annotations_dir, output_dir):
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Get list of image files
+    image_files = [
+        f for f in os.listdir(images_dir) if f.endswith((".jpg", ".png", ".jpeg"))
+    ]
+
+    for image_file in image_files:
+        # Load the image
+        image_path = os.path.join(images_dir, image_file)
+        image = cv2.imread(image_path)
+
+        # Load corresponding annotation file
+        annotation_file = os.path.splitext(image_file)[0] + ".txt"
+        annotation_path = os.path.join(annotations_dir, annotation_file)
+
+        if not os.path.exists(annotation_path):
+            print(
+                f"Warning: Annotation file {annotation_path} does not exist. Skipping {image_file}."
+            )
+            continue
+
+        with open(annotation_path, "r") as file:
+            annotations = file.readlines()
+
+        # Process each annotation
+        for idx, line in enumerate(annotations):
+            parts = line.strip().split()
+            if len(parts) != 5:
+                print(
+                    f"Warning: Invalid annotation format in {annotation_file} on line {idx + 1}."
+                )
+                continue
+
+            class_id, x_center, y_center, width, height = map(float, parts)
+
+            # Convert normalized coordinates to pixel values
+            img_height, img_width = image.shape[:2]
+            x_center_pixel = int(x_center * img_width)
+            y_center_pixel = int(y_center * img_height)
+            width_pixel = int(width * img_width)
+            height_pixel = int(height * img_height)
+
+            # Calculate bounding box coordinates
+            x1 = int(x_center_pixel - (width_pixel / 2))
+            y1 = int(y_center_pixel - (height_pixel / 2))
+            x2 = int(x_center_pixel + (width_pixel / 2))
+            y2 = int(y_center_pixel + (height_pixel / 2))
+
+            # Ensure coordinates are within image bounds
+            x1 = max(0, x1)
+            y1 = max(0, y1)
+            x2 = min(img_width, x2)
+            y2 = min(img_height, y2)
+
+            # Crop the image
+            cropped_image = image[y1:y2, x1:x2]
+
+            # Save the cropped image
+            # output_file_name = f"{os.path.splitext(image_file)[0]}_{class_id}.jpg"
+            # use yaml file class_id keys
+            keys = [
+                "live knot",
+                "dead knot",
+                "knot missing",
+                "knot with crack",
+                "crack",
+                "quartzity",
+                "resin",
+                "marrow",
+                "blue stain",
+                "overgrown"
+            ]
+            output_file_name = f"{keys[int(class_id)]}.jpg"
+            output_path = os.path.join(output_dir, output_file_name)
+            cv2.imwrite(output_path, cropped_image)
+
+        print(f"Processed {image_file}, saved cropped images to {output_dir}.")
+
+
 def main():
 
     print_supervision_version()
@@ -417,22 +498,25 @@ def main():
         IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
     )
     update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    compare_classes(gt_dataset, dataset)
-    compare_image_keys(gt_dataset, dataset)
-    evaluate_detections(dataset, gt_dataset)
-    compare_plot(dataset,gt_dataset)
-    #single_annotation_files = find_single_annotation_files(
+    #gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    #compare_classes(gt_dataset, dataset)
+    #compare_image_keys(gt_dataset, dataset)
+    #evaluate_detections(dataset, gt_dataset)
+    #compare_plot(dataset,gt_dataset)
+    load_images_and_annotations(f"{HOME}/Image_Embeddings", GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images")
+    # single_annotation_files = find_single_annotation_files(
     #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
-    #)
-    #print(single_annotation_files)
-    #df = create_annotations_dataframe(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    #print(df)
+    # )
+    # print(single_annotation_files)
+    # df = create_annotations_dataframe(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    # print(df)
     # print_statistics(df)
-    #save_annotations(df)
+    # save_annotations(df)
     # loaded_df = load_annotations()
     # print(loaded_df)
 
 
 if __name__ == "__main__":
+    from config import *
+
     main()

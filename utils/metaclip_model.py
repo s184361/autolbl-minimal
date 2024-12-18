@@ -45,11 +45,11 @@ class MetaCLIP(DetectionBaseModel):
 
     def predict(self, input: str, confidence: int = 0.5) -> sv.Classifications:
         prompts = self.ontology.prompts()
-        
+        image = Image.open(input)
         # check if the ontology is a EmbeddingOntologyImage
         with torch.no_grad():
             # cosine similarity as logits
-            image_features = self.embed_image(input)
+            image_features = self.embed_image(image)
             if isinstance(self.ontology, EmbeddingOntologyImage):
                 probs = []
                 embeddings = self.ontology.classes()
@@ -74,9 +74,9 @@ class MetaCLIP(DetectionBaseModel):
         )
 
     def embed_image(self, input: str) -> torch.Tensor:
-        image = Image.open(input)
+        #image = Image.open(input)
 
-        inputs = self.preprocess(images=image, return_tensors="pt", padding=True).to(DEVICE)
+        inputs = self.preprocess(images=input, return_tensors="pt", padding=True).to(DEVICE)
         # inputs = self.preprocess(image).unsqueeze(0).to(DEVICE)
         with torch.no_grad():
             with torch.amp.autocast('cuda'): 
