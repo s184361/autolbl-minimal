@@ -6,7 +6,8 @@ import supervision as sv
 import matplotlib.pyplot as plt
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
-from autodistill_grounded_sam import GroundedSAM
+#from autodistill_grounded_sam_2 import GroundedSAM2
+from autodistill_florence_2 import Florence2
 from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model import MetaCLIP
@@ -16,6 +17,8 @@ def main():
     # Check if GPU is available
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
+    DATASET_DIR_PATH = f"{HOME}/dataset"
+    reset_folders(DATASET_DIR_PATH, "results")
 
     # Display image sample
     image_paths = sv.list_files_with_extensions(
@@ -42,16 +45,16 @@ def main():
     # Update paths to use os.path.join for proper path formatting
     """
     images_to_classes = {
-        os.path.join(IMAGE_DIR_PATH, "100000010.jpg"): "live knot",
-        os.path.join(IMAGE_DIR_PATH, "100100010.jpg"): "dead knot",
-        os.path.join(IMAGE_DIR_PATH, "101800000.jpg"): "knot missing", 
-        os.path.join(IMAGE_DIR_PATH, "100000082.jpg"): "knot with crack",
-        os.path.join(IMAGE_DIR_PATH, "100500053.jpg"): "crack",
-        os.path.join(IMAGE_DIR_PATH, "100000001.jpg"): "quartzity",
-        os.path.join(IMAGE_DIR_PATH, "101100021.jpg"): "resin",
-        os.path.join(IMAGE_DIR_PATH, "101900001.jpg"): "marrow",
-        os.path.join(IMAGE_DIR_PATH, "139100026.jpg"): "overgrown",
-        os.path.join(IMAGE_DIR_PATH, "144100014.jpg"): "blue stain"
+        os.path.join(EMBEDING_DIR_PATH, "100000010.jpg"): "live knot",
+        os.path.join(EMBEDING_DIR_PATH, "100100010.jpg"): "dead knot",
+        os.path.join(EMBEDING_DIR_PATH, "101800000.jpg"): "knot missing", 
+        os.path.join(EMBEDING_DIR_PATH, "100000082.jpg"): "knot with crack",
+        os.path.join(EMBEDING_DIR_PATH, "100500053.jpg"): "crack",
+        os.path.join(EMBEDING_DIR_PATH, "100000001.jpg"): "quartzity",
+        os.path.join(EMBEDING_DIR_PATH, "101100021.jpg"): "resin",
+        os.path.join(EMBEDING_DIR_PATH, "101900001.jpg"): "marrow",
+        os.path.join(EMBEDING_DIR_PATH, "139100026.jpg"): "overgrown",
+        os.path.join(EMBEDING_DIR_PATH, "144100014.jpg"): "blue stain"
     }
     """
     images_to_classes = {
@@ -66,6 +69,7 @@ def main():
         os.path.join(f"{HOME}/croped_images", "overgrown.jpg"): "overgrown",
         os.path.join(f"{HOME}/croped_images", "blue stain.jpg"): "blue stain",
     }
+    
     # Verify images exist
     for image_path, class_name in images_to_classes.items():
         if not os.path.exists(image_path):
@@ -82,7 +86,7 @@ def main():
 
     # Create a combined model that uses both GroundingDINO for detection and MetaCLIP for classification
     model = ComposedDetectionModel2(
-        detection_model=GroundedSAM(CaptionOntology({PROMPT: PROMPT})),
+        detection_model=Florence2(CaptionOntology({"defect": "defect"})),
         classification_model=class_model,
     )
 
@@ -132,6 +136,6 @@ def main():
     compare_classes(gt_dataset, dataset)
     compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
-
+    compare_plot(dataset,gt_dataset)
 if __name__ == "__main__":
     main()

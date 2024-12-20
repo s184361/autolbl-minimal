@@ -8,6 +8,8 @@ from autodistill.utils import plot
 import cv2
 from typing import List
 import pandas as pd
+import shutil  # Import shutil for file operations
+from autodistill.utils import plot
 
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
@@ -125,45 +127,10 @@ def evaluate_detections(dataset, gt_dataset):
     plt.show()
     plt.savefig("results/confusion_matrix.png")
     print(confusion_matrix)
-    sv.MeanAveragePrecision.from_detections(predictions=predictions, targets=targets)
-
-
-def plot(image: np.ndarray, detections, classes: List[str], raw=False):
-    """
-    Plot bounding boxes or segmentation masks on an image.
-
-    Args:
-        image: The image to plot on
-        detections: The detections to plot
-        classes: The classes to plot
-        raw: Whether to return the raw image or plot it interactively
-
-    Returns:
-        The raw image (np.ndarray) if raw=True, otherwise None (image is plotted interactively
-    """
-    # TODO: When we have a classification annotator
-    # in supervision, we can add it here
-    if detections.mask is not None:
-        annotator = sv.MaskAnnotator()
-    else:
-        # annotator = sv.BoundingBoxAnnotator()
-        annotator = sv.BoxAnnotator()
-    label_annotator = sv.LabelAnnotator()
-
-    labels = [
-        f"{classes[class_id]} {confidence:0.2f}"
-        for _, _, confidence, class_id, _, _ in detections
-    ]
-
-    annotated_frame = annotator.annotate(scene=image.copy(), detections=detections)
-    annotated_frame = label_annotator.annotate(
-        scene=annotated_frame, labels=labels, detections=detections
-    )
-
-    if raw:
-        return annotated_frame
-
-    sv.plot_image(annotated_frame)
+    map_metric = sv.metrics.MeanAveragePrecision()
+    map_result = map_metric.update(predictions, targets).compute()
+    map_result.plot()
+    plt.savefig("results/mAP.png")
 
 
 def compare_plot(dataset, gt_dataset):
@@ -491,6 +458,47 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
         print(f"Processed {image_file}, saved cropped images to {output_dir}.")
 
 
+def reset_folders(dataset_folder_path, results_folder_path):
+    """
+    Deletes the dataset folder and results folder, then creates a new results folder.
+
+    Args:
+        dataset_folder_path: Path to the dataset folder to be deleted.
+        results_folder_path: Path to the results folder to be deleted and recreated.
+    """
+    # Delete the dataset folder if it exists
+    if os.path.exists(dataset_folder_path):
+        shutil.rmtree(dataset_folder_path)
+        print(f"Deleted dataset folder: {dataset_folder_path}")
+
+    # Delete the results folder if it exists
+    if os.path.exists(results_folder_path):
+        shutil.rmtree(results_folder_path)
+        print(f"Deleted results folder: {results_folder_path}")
+
+    # Create a new results folder
+    os.makedirs(results_folder_path, exist_ok=True)
+    print(f"Created new results folder: {results_folder_path}")
+
+def plot_annotated_images(dataset, sample_size, save_path):
+    image_names = list(dataset.images.keys())[:sample_size]
+
+    mask_annotator = sv.MaskAnnotator()
+    box_annotator = sv.BoxAnnotator()
+
+    images = []
+    for image_name in image_names:
+        image = dataset.images[image_name]
+        annotations = dataset.annotations[image_name]
+        labels = [dataset.classes[class_id] for class_id in annotations.class_id]
+        annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
+        annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
+        images.append(annotated_image)
+
+    sv.plot_images_grid(images=images, titles=image_names, grid_size=SAMPLE_GRID_SIZE, size=SAMPLE_PLOT_SIZE)
+    plt.savefig(save_path, dpi=1200)
+
+
 def main():
 
     print_supervision_version()
@@ -498,12 +506,12 @@ def main():
         IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
     )
     update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    #gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    #compare_classes(gt_dataset, dataset)
-    #compare_image_keys(gt_dataset, dataset)
-    #evaluate_detections(dataset, gt_dataset)
-    #compare_plot(dataset,gt_dataset)
-    load_images_and_annotations(f"{HOME}/Image_Embeddings", GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images")
+    gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    compare_classes(gt_dataset, dataset)
+    compare_image_keys(gt_dataset, dataset)
+    evaluate_detections(dataset, gt_dataset)
+    compare_plot(dataset,gt_dataset)
+    #load_images_and_annotations(f"{HOME}/Image_Embeddings", GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images")
     # single_annotation_files = find_single_annotation_files(
     #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
     # )

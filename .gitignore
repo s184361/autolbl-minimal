@@ -361,3 +361,6 @@ results/
 temp.jpeg
 *.lock
 *.toml
+# Start of Selection
+*/results_*
+wandb
