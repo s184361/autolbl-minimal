@@ -1,7 +1,6 @@
 import os
 
 HOME = os.getcwd()
-print("Current working directory:", HOME)
 
 # Define paths and parameters
 IMAGE_DIR_PATH = f"{HOME}/images"

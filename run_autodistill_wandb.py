@@ -30,10 +30,15 @@ names = re.findall(r"name=([^\n]+)", content)
 names = [name.lower().replace("_", " ") for name in names]
 ont_list = {(f"{name} surface defect"): name for name in names}
 
-print(ont_list)
+print(ont_list)# Convert mapping into a table
+table = wandb.Table(columns=["prompt", "caption"])
+for key, value in ont_list.items():
+    table.add_data(key, value)
 
-# Log the ontology list
-wandb.log({"ont_list": str(ont_list)})
+# Log the table
+wandb.log({"Prompt Table": table})
+
+
 
 convert_bmp_to_jpg(IMAGE_DIR_PATH)
 
@@ -64,7 +69,8 @@ dataset = sv.DetectionDataset.from_yolo(
 print("Dataset size:", len(dataset))
 
 # Call the function to plot annotated images
-plot_annotated_images(dataset, SAMPLE_SIZE, "results/sample_annotated_images_grid.png")
+print(SAMPLE_SIZE)
+#plot_annotated_images(dataset, SAMPLE_SIZE, "results/sample_annotated_images_grid.png")
 
 # Evaluate the dataset
 update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
