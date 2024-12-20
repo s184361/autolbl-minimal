@@ -5,7 +5,8 @@ import torch
 import cv2
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
-from autodistill_florence_2 import Florence2
+#from autodistill_florence_2 import Florence2
+from autodistill_grounding_dino import GroundingDINO
 from utils.config import *
 
 # Initialize wandb
@@ -43,7 +44,7 @@ wandb.log({"Prompt Table": table})
 convert_bmp_to_jpg(IMAGE_DIR_PATH)
 
 # Initiate base model and autolabel
-base_model = Florence2(ontology=CaptionOntology(ont_list))
+base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
 
 # Log model settings
 wandb.config.update({

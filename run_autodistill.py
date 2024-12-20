@@ -6,16 +6,16 @@ import cv2
 from utils.check_labels import *
 
 from autodistill.detection import CaptionOntology
-#from autodistill_grounding_dino import GroundingDINO
+from autodistill_grounding_dino import GroundingDINO
 #from autodistill_grounded_sam_2 import GroundedSAM2
-from autodistill_florence_2 import Florence2
+#from autodistill_florence_2 import Florence2
 from utils.config import *
 import wandb
 
 wandb.login()
 wandb.init()
 # Delete dataset and results folders if they exist
-reset_folders(DATASET_DIR_PATH, "results")
+#reset_folders(DATASET_DIR_PATH, "results")
 
 # Check if GPU is available
 print("CUDA available:", torch.cuda.is_available())
@@ -70,7 +70,7 @@ for root, dirs, files in os.walk(IMAGE_DIR_PATH):
             img = cv2.imread(os.path.join(root, file))
             cv2.imwrite(os.path.join(root, file.replace('.bmp', '.jpg')), img)
 
-base_model = Florence2(ontology=ontology)
+base_model = GroundingDINO(ontology=ontology)
 dataset = base_model.label(
     input_folder=IMAGE_DIR_PATH,
     extension=".png",

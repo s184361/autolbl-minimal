@@ -493,6 +493,7 @@ def reset_folders(dataset_folder_path, results_folder_path):
     print(f"Created new results folder: {results_folder_path}")
 
 def plot_annotated_images(dataset, sample_size, save_path):
+    from utils.config import SAMPLE_GRID_SIZE, SAMPLE_PLOT_SIZE
     image_names = list(dataset.images.keys())[:sample_size]
 
     mask_annotator = sv.MaskAnnotator()
