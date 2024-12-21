@@ -10,12 +10,12 @@ from autodistill_grounding_dino import GroundingDINO
 # from autodistill_grounded_sam_2 import GroundedSAM2
 
 from utils.config2 import *
-# import wandb
+import wandb
 
-# wandb.login()
-# wandb.init()
+wandb.login()
+wandb.init()
 # Delete dataset and results folders if they exist
-reset_folders(DATASET_DIR_PATH, "results")
+#reset_folders(DATASET_DIR_PATH, "results")
 
 # Check if GPU is available
 print("CUDA available:", torch.cuda.is_available())
@@ -36,8 +36,8 @@ plt.savefig("results/sample_images_grid.png")
 
 # Define ontology
 ont_list = {
-    "broken_large": "broken_large",
-    "broken_small": "broken_small",
+    "big part broken off": "broken_large",
+    "small part broken off": "broken_small",
     "contamination": "contamination",
 }
 
@@ -57,7 +57,7 @@ dataset = sv.DetectionDataset.from_yolo(
     data_yaml_path=DATA_YAML_PATH
 )
 print("Dataset size:", len(dataset))
-"""
+
 # Call the function to plot annotated images
 plot_annotated_images(dataset, SAMPLE_SIZE, "results/sample_annotated_images_grid.png")
 
@@ -68,4 +68,4 @@ compare_classes(gt_dataset, dataset)
 compare_image_keys(gt_dataset, dataset)
 evaluate_detections(dataset, gt_dataset)
 compare_plot(dataset,gt_dataset)
-"""
+

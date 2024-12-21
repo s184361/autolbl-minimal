@@ -10,6 +10,7 @@ import pandas as pd
 import shutil  # Import shutil for file operations
 from autodistill.utils import plot
 import wandb
+import shutil
 
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
@@ -127,19 +128,20 @@ def evaluate_detections(dataset, gt_dataset):
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
     except NameError:
-        plt.show()
-        plt.savefig("results/confusion_matrix.png")
+        print("WandB not available")
+    plt.savefig("results/confusion_matrix.png")
     print(confusion_matrix)
     map_metric = sv.metrics.MeanAveragePrecision()
     map_result = map_metric.update(predictions, targets).compute()
-    #table = wandb.Table(data=map_result.mAP_scores)
-    #wandb.log({"mAP Results": table})
+    # table = wandb.Table(data=map_result.mAP_scores)
+    # wandb.log({"mAP Results": table})
     map_result.plot()
     fig = plt.gcf()  # grab last figure
     try:
         wandb.log({"mAP": wandb.Image(fig)})
     except NameError:
-        plt.savefig("results/mAP.png")
+        print("WandB not available")
+    plt.savefig("results/mAP.png")
 
 
 def compare_plot(dataset, gt_dataset):
@@ -184,8 +186,8 @@ def compare_plot(dataset, gt_dataset):
             try:
                 wandb.log({f"Annotated Image {name_gt}": wandb.Image(fig)})
             except NameError:
-                # Save in high resolution
-                plt.savefig(f"results/{name_gt}", dpi=600)
+                print("WandB not available")
+            plt.savefig(f"results/{name_gt}", dpi=600)
             plt.close(fig)
 
 
@@ -507,14 +509,20 @@ def plot_annotated_images(dataset, sample_size, save_path):
         annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
         annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
         images.append(annotated_image)
-
+        sv.plot_images_grid(
+                images=images,
+                titles=image_names,
+                grid_size=SAMPLE_GRID_SIZE,
+                size=SAMPLE_PLOT_SIZE,
+            )
+        plt.axis("off")
+        fig = plt.gcf()
     # Log the combined grid of annotated images to wandb
     try:
-        wandb.log({"Annotated Images Grid": [wandb.Image(sv.plot_images_grid(images=images, titles=image_names, grid_size=SAMPLE_GRID_SIZE, size=SAMPLE_PLOT_SIZE), caption="Annotated Images Grid")]})
+        print("modify back")
+        #wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
     except NameError:
         # Save the images to the specified save path if wandb is not available
-        plt.imshow(sv.plot_images_grid(images=images, titles=image_names, grid_size=SAMPLE_GRID_SIZE, size=SAMPLE_PLOT_SIZE))
-        plt.axis('off')
         plt.savefig(save_path, dpi=1200)
         print(f"Saved annotated images grid to {save_path}.")
 
@@ -549,6 +557,3 @@ if __name__ == "__main__":
     main()
     if wandb.run is not None:
         wandb.finish()
-
-else:
-    from utils.config import *
