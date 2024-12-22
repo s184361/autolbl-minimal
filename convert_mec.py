@@ -1,6 +1,10 @@
 import os
 import cv2
-import numpy as np
+from utils.check_labels import load_dataset, compare_plot
+import supervision as sv
+from ultralytics.data.converter import (
+    convert_segment_masks_to_yolo_seg as convert_masks_to_yolo,
+)
 
 
 def convert_masks_to_yolo(input_dir, output_dir, classes):
@@ -26,10 +30,9 @@ def convert_masks_to_yolo(input_dir, output_dir, classes):
                 continue
 
             mask_path = os.path.join(mask_folder, mask_file)
-            class_name = os.path.basename(
-                mask_folder
-            )  # Get the class name from the folder
-            image_name = f"{os.path.splitext(mask_file)[0]}_{class_name}.txt"  # Add class name to the output name
+            class_name = os.path.basename(mask_folder)  # Get the class name from the folder
+            
+            image_name = f"{os.path.splitext(mask_file)[0].replace('_mask', '')}_{class_name}.txt"  # Remove "_mask" and add class name to the output name
             output_path = os.path.join(output_dir, image_name)
 
             # Load binary mask
@@ -38,29 +41,14 @@ def convert_masks_to_yolo(input_dir, output_dir, classes):
                 print(f"Failed to load mask: {mask_path}")
                 continue
 
-            # Find contours
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
+            # Use supervision to convert mask to polygons
+            polygons = sv.mask_to_polygons(mask)
 
             annotations = []
-            height, width = mask.shape
-
-            for contour in contours:
-                if len(contour) < 3:  # Skip invalid polygons
-                    continue
-
-                # Normalize contour coordinates
-                normalized_contour = [
-                    (point[0][0] / width, point[0][1] / height) for point in contour
-                ]
-
-                # Flatten the normalized coordinates and format for YOLO
-                flattened_contour = [
-                    coord for point in normalized_contour for coord in point
-                ]
-                annotation = [class_id] + flattened_contour
-                annotations.append(annotation)
+            x_min, y_min, x_max, y_max = sv.polygon_to_xyxy(polygons)
+                
+            annotation = [class_id] + flattened_polygon
+            annotations.append(annotation)
 
             # Write YOLO annotations to a text file
             with open(output_path, "w") as f:
@@ -109,7 +97,7 @@ def save_test_images_with_parent_name(test_dir, images_output_dir):
 
             image_path = os.path.join(parent_path, image_file)
             image_name = os.path.splitext(image_file)[0]
-            new_image_name = f"{image_name}_{parent_folder}.png"
+            new_image_name = f"{image_name}_{parent_folder}.jpg"
             output_path = os.path.join(images_output_dir, new_image_name)
 
             # Copy the image to the new location with the updated name
@@ -147,7 +135,6 @@ def annotations_for_good_pictures(input_dir, output_dir):
 
             print(f"Saved empty annotation for {good_file} to {good_output_path}")
 
-
 if __name__ == "__main__":
     # Define the input folder structure and output path
     input_directory = "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/bottle/ground_truth"
@@ -163,6 +150,11 @@ if __name__ == "__main__":
     test_directory = "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/bottle/test"
     images_output_directory = "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/bottle/images"
 
-
     save_test_images_with_parent_name(test_directory, images_output_directory)
     annotations_for_good_pictures(test_directory, output_directory)
+    yaml_dir = "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/bottle/data.yaml"
+    dataset = load_dataset(images_directory_path= images_output_directory,
+                    annotations_directory_path= output_directory,
+                    data_yaml_path=yaml_dir)
+
+    compare_plot(dataset,dataset)

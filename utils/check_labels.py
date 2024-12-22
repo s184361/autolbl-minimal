@@ -4,7 +4,6 @@ import numpy as np
 import re
 import yaml
 import matplotlib.pyplot as plt
-from autodistill.utils import plot
 import cv2
 import pandas as pd
 import shutil  # Import shutil for file operations
@@ -185,7 +184,7 @@ def compare_plot(dataset, gt_dataset):
 
             try:
                 wandb.log({f"Annotated Image {name_gt}": wandb.Image(fig)})
-            except NameError:
+            except:
                 print("WandB not available")
             plt.savefig(f"results/{name_gt}", dpi=600)
             plt.close(fig)
