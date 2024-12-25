@@ -126,7 +126,7 @@ def evaluate_detections(dataset, gt_dataset):
     fig =confusion_matrix.plot(normalize=True)
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
-    except NameError:
+    except:
         print("WandB not available")
     plt.savefig("results/confusion_matrix.png")
     print(confusion_matrix)
@@ -138,7 +138,7 @@ def evaluate_detections(dataset, gt_dataset):
     fig = plt.gcf()  # grab last figure
     try:
         wandb.log({"mAP": wandb.Image(fig)})
-    except NameError:
+    except:
         print("WandB not available")
     plt.savefig("results/mAP.png")
 
@@ -520,7 +520,7 @@ def plot_annotated_images(dataset, sample_size, save_path):
     try:
         print("modify back")
         #wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
-    except NameError:
+    except:
         # Save the images to the specified save path if wandb is not available
         plt.savefig(save_path, dpi=1200)
         print(f"Saved annotated images grid to {save_path}.")

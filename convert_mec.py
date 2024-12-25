@@ -1,11 +1,7 @@
 import os
 import cv2
-from utils.check_labels import load_dataset, compare_plot
+from utils.check_labels import load_dataset, compare_plot,evaluate_detections
 import supervision as sv
-from ultralytics.data.converter import (
-    convert_segment_masks_to_yolo_seg as convert_masks_to_yolo,
-)
-
 
 def convert_masks_to_yolo(input_dir, output_dir, classes):
     """
@@ -31,10 +27,9 @@ def convert_masks_to_yolo(input_dir, output_dir, classes):
 
             mask_path = os.path.join(mask_folder, mask_file)
             class_name = os.path.basename(mask_folder)  # Get the class name from the folder
-            
+
             image_name = f"{os.path.splitext(mask_file)[0].replace('_mask', '')}_{class_name}.txt"  # Remove "_mask" and add class name to the output name
             output_path = os.path.join(output_dir, image_name)
-
             # Load binary mask
             mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             if mask is None:
@@ -45,10 +40,20 @@ def convert_masks_to_yolo(input_dir, output_dir, classes):
             polygons = sv.mask_to_polygons(mask)
 
             annotations = []
-            x_min, y_min, x_max, y_max = sv.polygon_to_xyxy(polygons)
-                
-            annotation = [class_id] + flattened_polygon
-            annotations.append(annotation)
+            height, width = mask.shape  # Get the dimensions of the mask
+            for polygon in polygons:
+                x_min, y_min, x_max, y_max = sv.polygon_to_xyxy(polygon)
+                # Scale coordinates and dimensions to be between 0 and 1
+                x_min /= width
+                y_min /= height
+                x_max /= width
+                y_max /= height
+                scaled_width = (x_max - x_min)
+                scaled_height = (y_max - y_min)
+                x_center = (x_min + scaled_width / 2)
+                y_center = (y_min + scaled_height / 2)
+                annotation = [class_id, x_center, y_center, scaled_width, scaled_height     ]
+                annotations.append(annotation)
 
             # Write YOLO annotations to a text file
             with open(output_path, "w") as f:
@@ -156,5 +161,5 @@ if __name__ == "__main__":
     dataset = load_dataset(images_directory_path= images_output_directory,
                     annotations_directory_path= output_directory,
                     data_yaml_path=yaml_dir)
-
+    evaluate_detections(dataset, dataset)
     compare_plot(dataset,dataset)
