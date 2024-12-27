@@ -1,7 +1,8 @@
 import os
 import cv2
-from utils.check_labels import load_dataset, compare_plot,evaluate_detections
 import supervision as sv
+import numpy as np
+from utils.check_labels import load_dataset, compare_plot,evaluate_detections
 
 def convert_masks_to_yolo(input_dir, output_dir, classes):
     """
@@ -52,7 +53,16 @@ def convert_masks_to_yolo(input_dir, output_dir, classes):
                 scaled_height = (y_max - y_min)
                 x_center = (x_min + scaled_width / 2)
                 y_center = (y_min + scaled_height / 2)
-                annotation = [class_id, x_center, y_center, scaled_width, scaled_height     ]
+                # Normalize polygon coordinates to be between 0 and 1
+                polygon = np.array(polygon, dtype=np.float32)  # Convert to numpy array for easier manipulation with float32 type
+                polygon[:, 0] /= width  # Normalize x coordinates
+                polygon[:, 1] /= height  # Normalize y coordinates
+                flattened_polygon = polygon.flatten().tolist()  # Flatten the normalized polygon coordinates
+                #normalize the polygon
+                # Normalize the polygon coordinates with respect to height and width
+                polygon[:, 0] = polygon[:, 0] / width  # Normalize x coordinates
+                polygon[:, 1] = polygon[:, 1] / height  # Normalize y coordinates
+                annotation = [class_id, x_center, y_center, scaled_width, scaled_height] + flattened_polygon
                 annotations.append(annotation)
 
             # Write YOLO annotations to a text file
