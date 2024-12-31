@@ -311,76 +311,6 @@ def create_annotations_dataframe(annotations_directory_path, gt_data_yaml_path):
     return df
 
 
-def query_annotations(df, class_name=None, filename=None):
-    """
-    Query the annotations DataFrame.
-
-    Args:
-        df: pandas DataFrame containing annotations
-        class_name: Filter by class name
-        filename: Filter by filename
-
-    Returns:
-        Filtered pandas DataFrame
-    """
-    mask = pd.Series([True] * len(df))
-
-    if class_name:
-        mask &= df["class_name"] == class_name
-
-    if filename:
-        mask &= df["filename"] == filename
-
-    return df[mask]
-
-
-def save_annotations(df, csv_path="annotations.csv"):
-    """
-    Save annotations DataFrame to CSV file.
-
-    Args:
-        df: pandas DataFrame containing annotations
-        csv_path: Path where to save the CSV file
-    """
-    df.to_csv(csv_path, index=False)
-
-
-def load_annotations(csv_path="annotations.csv"):
-    """
-    Load annotations from CSV file.
-
-    Args:
-        csv_path: Path to the CSV file
-
-    Returns:
-        pandas DataFrame containing annotations
-    """
-    return pd.read_csv(csv_path)
-
-
-def print_statistics(df):
-    """
-    Print various statistics about the annotations.
-
-    Args:
-        df: pandas DataFrame containing annotations
-    """
-    print("\nDataset Statistics:")
-    print("-" * 50)
-
-    # Count of annotations per class
-    print("\nClass distribution:")
-    print(df["class_name"].value_counts())
-
-    # Count of annotations per file
-    print("\nAnnotations per file:")
-    print(df.groupby("filename").size())
-
-    # Basic statistics of bounding box dimensions
-    print("\nBounding box statistics:")
-    print(df[["width", "height"]].describe())
-
-
 def convert_bmp_to_jpg(image_dir_path):
     for root, dirs, files in os.walk(image_dir_path):
         for file in files:
@@ -400,6 +330,7 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
 
     for image_file in image_files:
         # Load the image
+        image_name = os.path.splitext(image_file)[0]
         image_path = os.path.join(images_dir, image_file)
         image = cv2.imread(image_path)
 
@@ -433,7 +364,8 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
             y_center_pixel = int(y_center * img_height)
             width_pixel = int(width * img_width)
             height_pixel = int(height * img_height)
-
+            if width_pixel < 50 or height_pixel<50:
+                continue
             # Calculate bounding box coordinates
             x1 = int(x_center_pixel - (width_pixel / 2))
             y1 = int(y_center_pixel - (height_pixel / 2))
@@ -445,12 +377,9 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
             y1 = max(0, y1)
             x2 = min(img_width, x2)
             y2 = min(img_height, y2)
-
             # Crop the image
             cropped_image = image[y1:y2, x1:x2]
 
-            # Save the cropped image
-            # output_file_name = f"{os.path.splitext(image_file)[0]}_{class_id}.jpg"
             # use yaml file class_id keys
             keys = [
                 "live knot",
@@ -464,9 +393,25 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
                 "blue stain",
                 "overgrown"
             ]
-            output_file_name = f"{keys[int(class_id)]}.jpg"
+            # output_file_name = f"{image_file}_{keys[int(class_id)]}.jpg"
+
+            # Save the cropped image
+            output_file_name = (
+                f"{os.path.splitext(image_file)[0]}_{keys[int(class_id)]}.jpg"
+            )
             output_path = os.path.join(output_dir, output_file_name)
             cv2.imwrite(output_path, cropped_image)
+            # create annotation files
+            annotation = [int(class_id), 0.5, 0.5, 1, 1]
+            # Write YOLO annotations to a text file
+            output_path = os.path.join(
+                output_dir,
+                f"{os.path.splitext(image_file)[0]}_{keys[int(class_id)]}.txt",
+            )
+
+            with open(output_path, "w") as f:
+                annotation_str = " ".join(map(str, annotation))
+                f.write(annotation_str)
 
         print(f"Processed {image_file}, saved cropped images to {output_dir}.")
 
@@ -526,18 +471,21 @@ def plot_annotated_images(dataset, sample_size, save_path):
         print(f"Saved annotated images grid to {save_path}.")
 
 def main():
-    wandb.init()
+    #wandb.init()
     print_supervision_version()
-    dataset = load_dataset(
-        IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
-    )
+    #dataset = load_dataset(
+    #    IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
+    #)
     update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    compare_classes(gt_dataset, dataset)
-    compare_image_keys(gt_dataset, dataset)
-    evaluate_detections(dataset, gt_dataset)
-    compare_plot(dataset,gt_dataset)
-    #load_images_and_annotations(f"{HOME}/Image_Embeddings", GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images")
+    #compare_classes(gt_dataset, dataset)
+    #compare_image_keys(gt_dataset, dataset)
+    #evaluate_detections(dataset, gt_dataset)
+    #compare_plot(dataset,gt_dataset)
+    load_images_and_annotations(
+        IMAGE_DIR_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images2"
+    )
+
     # single_annotation_files = find_single_annotation_files(
     #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
     # )
