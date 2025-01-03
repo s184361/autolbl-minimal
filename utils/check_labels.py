@@ -140,8 +140,8 @@ def evaluate_detections(dataset, gt_dataset):
         )
         fig =confusion_matrix.plot(normalize=True)
         confusion_matrix = confusion_matrix.matrix
-    acc = confusion_matrix.sum(-1) / confusion_matrix.shape[0]
-    acc = np.append(acc,confusion_matrix.sum()/confusion_matrix.size)
+    acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
+    acc = np.append(acc,confusion_matrix.diagonal().sum()/confusion_matrix.sum())
 
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
