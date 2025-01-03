@@ -12,6 +12,8 @@ from autodistill.detection import CaptionOntology
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model_classifier import MetaCLIP
 from utils.config import *
+from itertools import chain
+import wandb
 
 
 def load_dataset_from_folder_structure(
@@ -50,14 +52,27 @@ def load_dataset_from_folder_structure(
     return sv.ClassificationDataset(
         classes=classes, images=image_paths, annotations=annotations
     )
+def merge_datasets(train_dataset: sv.ClassificationDataset, valid_dataset: sv.ClassificationDataset, test_dataset: sv.ClassificationDataset) -> sv.ClassificationDataset:
+    dataset_list = [train_dataset, valid_dataset, test_dataset]
+    classes = train_dataset.classes
+    images = list(chain.from_iterable(dataset.images for dataset in dataset_list))
+    annotations = {}
+    
+    for dataset in dataset_list:
+        annotations.update(dataset.annotations)
 
+    return sv.ClassificationDataset(classes=classes, images=images, annotations=annotations)
 
 def main():
     # Check if GPU is available
     IMAGE_DIR_PATH = f"{HOME}/croped_images2"
+    DATASET_DIR_PATH = f"{HOME}/dataset"
+    GT_IMAGES_DIRECTORY_PATH = IMAGE_DIR_PATH
+    GT_ANNOTATIONS_DIRECTORY_PATH = IMAGE_DIR_PATH
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
-    DATASET_DIR_PATH = f"{HOME}/dataset"
+
     reset_folders(DATASET_DIR_PATH, "results")
 
     # Display image sample
@@ -106,10 +121,12 @@ def main():
         os.path.join(f"{HOME}/croped_images", "quartzity.jpg"): "quartzity",
         os.path.join(f"{HOME}/croped_images", "resin.jpg"): "resin",
         os.path.join(f"{HOME}/croped_images", "marrow.jpg"): "marrow",
-        os.path.join(f"{HOME}/croped_images", "overgrown.jpg"): "overgrown",
         os.path.join(f"{HOME}/croped_images", "blue stain.jpg"): "blue stain",
+        os.path.join(f"{HOME}/croped_images", "overgrown.jpg"): "overgrown",
     }
-
+    images_to_classes = dict(sorted(images_to_classes.items(), key=lambda item: item[1]))
+    wandb.login()
+    wandb.init()
     # Verify images exist
     for image_path, class_name in images_to_classes.items():
         if not os.path.exists(image_path):
@@ -128,24 +145,34 @@ def main():
     dataset = model.label(
         input_folder=IMAGE_DIR_PATH, extension=".jpg", output_folder=DATASET_DIR_PATH
     )
-    train_dataset = load_dataset_from_folder_structure(os.path.join(HOME, 'train'))
-    valid_dataset = load_dataset_from_folder_structure(os.path.join(HOME, 'valid'))
-    test_dataset = load_dataset_from_folder_structure(os.path.join(HOME, 'test'))
+
+    train_dataset = sv.ClassificationDataset.from_folder_structure(
+        os.path.join(HOME, "dataset/train")
+    )
+    valid_dataset = sv.ClassificationDataset.from_folder_structure(
+        os.path.join(HOME, "dataset/valid")
+    )
+    test_dataset = sv.ClassificationDataset.from_folder_structure(
+        os.path.join(HOME, "dataset/test")
+    )
+    merged_dataset = merge_datasets(train_dataset, valid_dataset, test_dataset)
+    # load ground truth dataset
+    compare_image_keys(dataset,merged_dataset)
+    dataset = merged_dataset
     print("Dataset size:", len(dataset))
 
     image_names = list(dataset.images.keys())[:SAMPLE_SIZE]
-
-    mask_annotator = sv.MaskAnnotator()
-    box_annotator = sv.BoxAnnotator()
 
     images = []
     for image_name in image_names:
         image = dataset.images[image_name]
         annotations = dataset.annotations[image_name]
         labels = [dataset.classes[class_id] for class_id in annotations.class_id]
-        annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
-        annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
-        images.append(annotated_image)
+        # add title
+
+        title = f"Class: {', '.join(labels)}"
+        cv2.putText(image, title, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        images.append(image)
 
     plt.ion()
     sv.plot_images_grid(
@@ -161,11 +188,12 @@ def main():
     plt.savefig("results/sample_annotated_images_grid.png", dpi=1200)
 
     # evaluate the dataset
-    update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    # update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     compare_classes(gt_dataset, dataset)
     compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
-    compare_plot(dataset,gt_dataset)
+    #compare_plot(dataset,gt_dataset)
+    classification_table(dataset,gt_dataset)
 if __name__ == "__main__":
     main()

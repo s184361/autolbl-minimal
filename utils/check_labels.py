@@ -3,6 +3,7 @@ import os
 import numpy as np
 import re
 import yaml
+import matplotlib
 import matplotlib.pyplot as plt
 import cv2
 import pandas as pd
@@ -10,6 +11,8 @@ import shutil  # Import shutil for file operations
 from autodistill.utils import plot
 import wandb
 import shutil
+from typing import Callable, List, Optional, Tuple
+import subprocess
 
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
@@ -117,31 +120,50 @@ def evaluate_detections(dataset, gt_dataset):
         predictions.append(annotation)
         if key in gt_dict:
             targets.append(gt_dict[key])
-    confusion_matrix = sv.ConfusionMatrix.from_detections(
-        predictions=predictions,
-        targets=targets,
-        classes=dataset.classes,
-        iou_threshold=0.5,
-    )
-    fig =confusion_matrix.plot(normalize=True)
+    if isinstance(dataset, sv.ClassificationDataset):
+        confusion_matrix = np.zeros((len(gt_dataset.classes),len(dataset.classes)))
+        for i in range(len(targets)):
+            target = int(targets[i].class_id)
+            pred = int(predictions[i].class_id)
+            confusion_matrix[target,pred] +=1
+        fig = plot_confusion_class(
+            input=confusion_matrix,
+            classes = gt_dataset.classes,
+            normalize=True)
+
+    else:
+        confusion_matrix = sv.ConfusionMatrix.from_detections(
+            predictions=predictions,
+            targets=targets,
+            classes=dataset.classes,
+            iou_threshold=0.5,
+        )
+        fig =confusion_matrix.plot(normalize=True)
+        confusion_matrix = confusion_matrix.matrix
+    acc = confusion_matrix.sum(-1) / confusion_matrix.shape[0]
+    acc = np.append(acc,confusion_matrix.sum()/confusion_matrix.size)
+
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
+        tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[acc])
+        wandb.log({"Accuracies": tab})
     except:
         print("WandB not available")
     plt.savefig("results/confusion_matrix.png")
     print(confusion_matrix)
-    map_metric = sv.metrics.MeanAveragePrecision()
-    map_result = map_metric.update(predictions, targets).compute()
-    # table = wandb.Table(data=map_result.mAP_scores)
-    # wandb.log({"mAP Results": table})
-    map_result.plot()
-    fig = plt.gcf()  # grab last figure
-    try:
-        wandb.log({"mAP": wandb.Image(fig)})
-    except:
-        print("WandB not available")
-    plt.savefig("results/mAP.png")
 
+    if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
+        map_metric = sv.metrics.MeanAveragePrecision()
+        map_result = map_metric.update(predictions, targets).compute()
+        # table = wandb.Table(data=map_result.mAP_scores)
+        # wandb.log({"mAP Results": table})
+        map_result.plot()
+        fig = plt.gcf()  # grab last figure
+        try:
+            wandb.log({"mAP": wandb.Image(fig)})
+        except:
+            print("WandB not available")
+        plt.savefig("results/mAP.png")
 
 def compare_plot(dataset, gt_dataset):
     img = []
@@ -426,12 +448,18 @@ def reset_folders(dataset_folder_path, results_folder_path):
     """
     # Delete the dataset folder if it exists
     if os.path.exists(dataset_folder_path):
-        shutil.rmtree(dataset_folder_path)
+        try:
+            shutil.rmtree(dataset_folder_path)
+        except:
+            subprocess.run(["rd", "/s", "/q", dataset_folder_path], shell=True, check=True)
         print(f"Deleted dataset folder: {dataset_folder_path}")
 
     # Delete the results folder if it exists
     if os.path.exists(results_folder_path):
-        shutil.rmtree(results_folder_path)
+        try:
+            shutil.rmtree(results_folder_path)
+        except:
+            subprocess.run(["rd", "/s", "/q", results_folder_path], shell=True, check=True)
         print(f"Deleted results folder: {results_folder_path}")
 
     # Create a new results folder
@@ -464,12 +492,88 @@ def plot_annotated_images(dataset, sample_size, save_path):
     # Log the combined grid of annotated images to wandb
     try:
         print("modify back")
-        #wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
+        # wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
     except:
         # Save the images to the specified save path if wandb is not available
         plt.savefig(save_path, dpi=1200)
         print(f"Saved annotated images grid to {save_path}.")
 
+
+def plot_confusion_class(
+        input,
+        save_path: Optional[str] = None,
+        title: Optional[str] = None,
+        classes: Optional[List[str]] = None,
+        normalize: bool = False,
+        fig_size: Tuple[int, int] = (12, 10),
+    ) -> matplotlib.figure.Figure:
+    array = input.copy()
+
+    if normalize:
+        eps = 1e-8
+        array = array / (array.sum(0).reshape(1, -1) + eps)
+
+    array[array < 0.005] = np.nan
+
+    fig, ax = plt.subplots(figsize=fig_size, tight_layout=True, facecolor="white")
+
+    class_names = classes
+    use_labels_for_ticks = class_names is not None and (0 < len(class_names) < 99)
+    if use_labels_for_ticks:
+        x_tick_labels = [*class_names, "FN"]
+        y_tick_labels = [*class_names, "FP"]
+        num_ticks = len(x_tick_labels)
+    else:
+        x_tick_labels = None
+        y_tick_labels = None
+        num_ticks = len(array)
+    im = ax.imshow(array, cmap="Blues")
+
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.mappable.set_clim(vmin=0, vmax=np.nanmax(array))
+
+    if x_tick_labels is None:
+        tick_interval = 2
+    else:
+        tick_interval = 1
+    ax.set_xticks(np.arange(0, num_ticks, tick_interval), labels=x_tick_labels)
+    ax.set_yticks(np.arange(0, num_ticks, tick_interval), labels=y_tick_labels)
+
+    plt.setp(ax.get_xticklabels(), rotation=90, ha="right", rotation_mode="default")
+
+    labelsize = 10 if num_ticks < 50 else 8
+    ax.tick_params(axis="both", which="both", labelsize=labelsize)
+
+    if num_ticks < 30:
+        for i in range(array.shape[0]):
+            for j in range(array.shape[1]):
+                n_preds = array[i, j]
+                if not np.isnan(n_preds):
+                    ax.text(
+                        j,
+                        i,
+                        f"{n_preds:.2f}" if normalize else f"{n_preds:.0f}",
+                        ha="center",
+                        va="center",
+                        color="black" if n_preds < 0.5 * np.nanmax(array) else "white",
+                    )
+
+    if title:
+        ax.set_title(title, fontsize=20)
+
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("True")
+    ax.set_facecolor("white")
+    if save_path:
+        fig.savefig(
+                save_path, dpi=250, facecolor=fig.get_facecolor(), transparent=True
+            )
+    return fig
+
+def classificaiton_table(
+        dataset,
+        gt_dataset):
+    "creates wandb table"
 def main():
     #wandb.init()
     print_supervision_version()
