@@ -13,9 +13,9 @@ from utils.config import *
 import wandb
 
 wandb.login()
-wandb.init()
+wandb.init(project="autolbl",name="Single model",tags="DINO")
 # Delete dataset and results folders if they exist
-#reset_folders(DATASET_DIR_PATH, "results")
+reset_folders(DATASET_DIR_PATH, "results")
 
 # Check if GPU is available
 print("CUDA available:", torch.cuda.is_available())
@@ -40,7 +40,7 @@ with open("data/Semantic Map Specification.txt", "r") as file:
 names = re.findall(r"name=([^\n]+)", content)
 names = [name.lower().replace("_", " ") for name in names]
 
-#ont_list = {(f"{name} wood defect"): name for name in names}
+ont_list = {(f"{name}"): name for name in names}
 #ont_list = {(f"{name} anomaly defect scrach speck miscoloration"): name for name in names}
 """
 ont_list = {
@@ -56,7 +56,7 @@ ont_list = {
     "Overgrown defects occur when a tree grows over a wound or foreign object, leading to irregular wood grain patterns and potential weaknesses.": "overgrown"
 }
 """
-ont_list = {"surface defect": "defect"}
+#ont_list = {"surface defect": "defect"}
 print(ont_list)
 ontology = CaptionOntology(ont_list)
 
@@ -95,3 +95,4 @@ compare_classes(gt_dataset, dataset)
 compare_image_keys(gt_dataset, dataset)
 evaluate_detections(dataset, gt_dataset)
 compare_plot(dataset,gt_dataset)
+wandb.finish()

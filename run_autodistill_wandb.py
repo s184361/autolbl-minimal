@@ -11,7 +11,7 @@ from utils.config import *
 
 # Initialize wandb
 wandb.login()
-wandb.init(project="autolbl")  # Specify your project name
+wandb.init(project="auto_label", name="Single DINO", tags="DINO")  # Updated project and run name
 reset_folders(DATASET_DIR_PATH, "results")
 
 # Check if GPU is available
@@ -29,8 +29,8 @@ with open("data/Semantic Map Specification.txt", "r") as file:
     content = file.read()
 names = re.findall(r"name=([^\n]+)", content)
 names = [name.lower().replace("_", " ") for name in names]
-ont_list = {(f"{name} surface defect"): name for name in names}
-
+#ont_list = {(f"{name} surface defect"): name for name in names}
+ont_list = {(f"{name}"): name for name in names}
 print(ont_list)# Convert mapping into a table
 table = wandb.Table(columns=["prompt", "caption"])
 for key, value in ont_list.items():
@@ -48,7 +48,7 @@ base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
 
 # Log model settings
 wandb.config.update({
-    "model": "Florence2",
+    "model": (f"{base_model.__class__.__name__}"),
     "ontology": ont_list,
     "input_folder": IMAGE_DIR_PATH,
     "output_folder": DATASET_DIR_PATH,

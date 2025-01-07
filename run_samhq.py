@@ -45,7 +45,8 @@ convert_bmp_to_jpg(IMAGE_DIR_PATH)
 
 # Initiate base model and autolabel
 # base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
-base_model = base_model = SAMHQ(None)
+base_model = base_model = SAMHQ(CaptionOntology(ontology=ont_list))
+
 
 # Log model settings
 wandb.config.update({

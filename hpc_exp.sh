@@ -32,4 +32,4 @@ module load cuda
 conda activate alenv
 
 cd /zhome/4a/b/137804/Desktop/autolbl
-python run_autodistill_bottle.py
+python run_autodistill_wandb.py

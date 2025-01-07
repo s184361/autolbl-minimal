@@ -155,8 +155,8 @@ def evaluate_detections(dataset, gt_dataset):
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
         map_metric = sv.metrics.MeanAveragePrecision()
         map_result = map_metric.update(predictions, targets).compute()
-        # table = wandb.Table(data=map_result.mAP_scores)
-        # wandb.log({"mAP Results": table})
+        table = wandb.Table(data=[[score] for score in map_result.mAP_scores])
+        wandb.log({"mAP Results": table})
         map_result.plot()
         fig = plt.gcf()  # grab last figure
         try:
@@ -166,17 +166,30 @@ def evaluate_detections(dataset, gt_dataset):
         plt.savefig("results/mAP.png")
 
 def compare_plot(dataset, gt_dataset):
+    for key in dataset.annotations.keys():
+        for i in range(len(dataset.annotations[key])):
+            dataset.annotations[key].confidence = np.ones_like(
+                dataset.annotations[key].class_id
+            )
+    for key in gt_dataset.annotations.keys():
+        for i in range(len(gt_dataset.annotations[key])):
+            gt_dataset.annotations[key].confidence = np.ones_like(
+                gt_dataset.annotations[key].class_id
+            )
     img = []
     name = []
     for image_path, _, annotation in dataset:
         image = cv2.imread(image_path)
         classes = dataset.classes
         result = annotation
-
-        img.append(plot(image=image, classes=classes, detections=result, raw=True))
+        try:
+            img.append(plot(image=image, classes=classes, detections=result, raw=True))
+        except:
+            img.append(plot(image=image, classes=[str(i) for i in range(100)], detections=result, raw=True))
         name.append(os.path.basename(image_path))
 
     for image_path, _, annotation in gt_dataset:
+
         classes = gt_dataset.classes
         name_gt = os.path.splitext(os.path.basename(image_path))[0] + ".jpg"
         if name_gt in name:
@@ -187,7 +200,10 @@ def compare_plot(dataset, gt_dataset):
                 # if empty, plot only the image
                 img_gt = image
             else:
-                img_gt = plot(image=image, classes=classes, detections=result, raw=True)
+                try:
+                    img_gt = plot(image=image, classes=classes, detections=result, raw=True)
+                except:
+                    img_gt = plot(image=image, classes=[str(i) for i in range(100)], detections=result, raw=True)
 
             # Find fig index
             index = name.index(name_gt)
@@ -575,20 +591,20 @@ def classificaiton_table(
         gt_dataset):
     "creates wandb table"
 def main():
-    #wandb.init()
+    wandb.init()
     print_supervision_version()
-    #dataset = load_dataset(
-    #    IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
-    #)
-    update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    dataset = load_dataset(
+        IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
+    )
+    #update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     #compare_classes(gt_dataset, dataset)
     #compare_image_keys(gt_dataset, dataset)
     #evaluate_detections(dataset, gt_dataset)
-    #compare_plot(dataset,gt_dataset)
-    load_images_and_annotations(
-        IMAGE_DIR_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images2"
-    )
+    compare_plot(dataset,gt_dataset)
+    #load_images_and_annotations(
+    #    IMAGE_DIR_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images2"
+    #)
 
     # single_annotation_files = find_single_annotation_files(
     #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
