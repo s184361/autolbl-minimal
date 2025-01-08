@@ -6,19 +6,27 @@ import supervision as sv
 import matplotlib.pyplot as plt
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
+from autodistill_grounding_dino import GroundingDINO
 #from autodistill_grounded_sam_2 import GroundedSAM2
 from autodistill_florence_2 import Florence2
 from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model import MetaCLIP
 from utils.config import *
-
+import wandb
 def main():
+    DATASET_DIR_PATH = f"{HOME}/dataset"
+    reset_folders(DATASET_DIR_PATH, "results")
+    tag = "Florence"
+    #tag = "DINO"
+    # Initialize wandb
+    wandb.login()
+    wandb.init(project="auto_label", name=f"Composed {tag}-Meta_embed", tags=f"{tag}")  # Updated project and run name
+    sahi=False
     # Check if GPU is available
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
-    DATASET_DIR_PATH = f"{HOME}/dataset"
-    reset_folders(DATASET_DIR_PATH, "results")
+    
 
     # Display image sample
     image_paths = sv.list_files_with_extensions(
@@ -83,10 +91,21 @@ def main():
     DATASET_DIR_PATH = f"{HOME}/dataset"
 
     convert_bmp_to_jpg(IMAGE_DIR_PATH)
+    ont_list = {PROMPT: "defect"}
+    table = wandb.Table(columns=["prompt", "caption"])
+    for key, value in ont_list.items():
+        table.add_data(key, value)
 
+    # Log the table
+    wandb.log({"Prompt Table": table})
+    # Initiate base model and autolabel
+    if tag == "DINO":
+        base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
+    if tag == "Florence":
+        base_model = Florence2(ontology=CaptionOntology(ont_list))
     # Create a combined model that uses both GroundingDINO for detection and MetaCLIP for classification
     model = ComposedDetectionModel2(
-        detection_model=Florence2(CaptionOntology({"defect": "defect"})),
+        detection_model=base_model,
         classification_model=class_model,
     )
 

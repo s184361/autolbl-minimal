@@ -126,11 +126,14 @@ def main():
     }
     images_to_classes = dict(sorted(images_to_classes.items(), key=lambda item: item[1]))
     wandb.login()
-    wandb.init()
+    tag = "MetaCLIP_embedding"
+    wandb.init(project="auto_label", name=f"Cropped {tag}", tags=f"{tag}") 
     # Verify images exist
     for image_path, class_name in images_to_classes.items():
         if not os.path.exists(image_path):
             print(f"Warning: Image not found for class {class_name}: {image_path}")
+        else:
+            wandb.log({"example_image": wandb.Image(image_path, caption=class_name)})
 
     # Create embedding ontology and models
     img_emb = EmbeddingOntologyImage(images_to_classes)
@@ -194,6 +197,6 @@ def main():
     compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
     #compare_plot(dataset,gt_dataset)
-    classification_table(dataset,gt_dataset)
+    #classification_table(dataset,gt_dataset)
 if __name__ == "__main__":
     main()

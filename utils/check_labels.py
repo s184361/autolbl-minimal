@@ -50,6 +50,10 @@ def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
                     center_y = (y1 + y2) / 2
                     width = abs(x1 - x2)
                     height = abs(y1 - y2)
+                    #check if annotation is smaller than 0.1% of the image
+                    if width*height > 0.1:
+                        pass
+                        print(f"annotation skipped for image {filename}")
                     new_line = (
                         f"{label_number} {center_x} {center_y} {width} {height}\n"
                     )
@@ -87,7 +91,7 @@ def compare_image_keys(gt_dataset, dataset):
             print(f"Key {key} in GT dataset")
 
 
-def evaluate_detections(dataset, gt_dataset):
+def evaluate_detections(dataset, gt_dataset,results_dir="results"):
 
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
@@ -140,32 +144,46 @@ def evaluate_detections(dataset, gt_dataset):
         )
         fig =confusion_matrix.plot(normalize=True)
         confusion_matrix = confusion_matrix.matrix
+        # Remove last row and last column
+        confusion_matrix = confusion_matrix[:-1, :-1]
     acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
     acc = np.append(acc,confusion_matrix.diagonal().sum()/confusion_matrix.sum())
-
+    print("acc", acc)
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
         tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[acc])
         wandb.log({"Accuracies": tab})
     except:
         print("WandB not available")
-    plt.savefig("results/confusion_matrix.png")
+
+    plt.savefig(f"{results_dir}/confusion_matrix.png")
     print(confusion_matrix)
 
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
         map_metric = sv.metrics.MeanAveragePrecision()
         map_result = map_metric.update(predictions, targets).compute()
-        table = wandb.Table(data=[[score] for score in map_result.mAP_scores])
-        wandb.log({"mAP Results": table})
+        print(map_result)
+        # Create a DataFrame from the mAP scores
+        #map_scores = map_result.mAP_scores
+        #map_data = pd.DataFrame({
+        #    "Class": dataset.classes + ["all"],
+        #    "mAP Score": np.append(map_scores,np.array([0])),#append overall mAP
+        #    "Accuracies:": acc
+        #})
+        #print("df",map_data)
+        # Log the DataFrame to wandb
+        #table = wandb.Table(dataframe=map_data,allow_mixed_types=True)
+        #wandb.log({"mAP Results": table})
+        
         map_result.plot()
         fig = plt.gcf()  # grab last figure
         try:
             wandb.log({"mAP": wandb.Image(fig)})
         except:
             print("WandB not available")
-        plt.savefig("results/mAP.png")
+        plt.savefig(f"{results_dir}/mAP.png")
 
-def compare_plot(dataset, gt_dataset):
+def compare_plot(dataset, gt_dataset,results_dir="results"):
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
             dataset.annotations[key].confidence = np.ones_like(
@@ -203,6 +221,7 @@ def compare_plot(dataset, gt_dataset):
                 try:
                     img_gt = plot(image=image, classes=classes, detections=result, raw=True)
                 except:
+                    print("Comparison image not in WandB")
                     img_gt = plot(image=image, classes=[str(i) for i in range(100)], detections=result, raw=True)
 
             # Find fig index
@@ -224,7 +243,7 @@ def compare_plot(dataset, gt_dataset):
                 wandb.log({f"Annotated Image {name_gt}": wandb.Image(fig)})
             except:
                 print("WandB not available")
-            plt.savefig(f"results/{name_gt}", dpi=600)
+            plt.savefig(os.path.join(results_dir, name_gt), dpi=1200)
             plt.close(fig)
 
 
@@ -508,11 +527,12 @@ def plot_annotated_images(dataset, sample_size, save_path):
     # Log the combined grid of annotated images to wandb
     try:
         print("modify back")
-        # wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
+        wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
     except:
         # Save the images to the specified save path if wandb is not available
-        plt.savefig(save_path, dpi=1200)
-        print(f"Saved annotated images grid to {save_path}.")
+        print("WandB not available")
+    plt.savefig(save_path, dpi=1200)
+    print(f"Saved annotated images grid to {save_path}.")
 
 
 def plot_confusion_class(
@@ -596,11 +616,11 @@ def main():
     dataset = load_dataset(
         IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
     )
-    #update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
+    update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    #compare_classes(gt_dataset, dataset)
-    #compare_image_keys(gt_dataset, dataset)
-    #evaluate_detections(dataset, gt_dataset)
+    compare_classes(gt_dataset, dataset)
+    compare_image_keys(gt_dataset, dataset)
+    evaluate_detections(dataset, gt_dataset)
     compare_plot(dataset,gt_dataset)
     #load_images_and_annotations(
     #    IMAGE_DIR_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images2"

@@ -1,0 +1,30 @@
+{
+    "default": {
+        "HOME": "/path/to/home",
+        "IMAGE_DIR_PATH": "/path/to/images",
+        "ANNOTATIONS_DIRECTORY_PATH": "/path/to/dataset/train/labels",
+        "IMAGES_DIRECTORY_PATH": "/path/to/dataset/train/images",
+        "DATA_YAML_PATH": "/path/to/dataset/data.yaml",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "/path/to/data/BoudingBoxes",
+        "GT_IMAGES_DIRECTORY_PATH": "/path/to/images",
+        "GT_DATA_YAML_PATH": "/path/to/data/data.yaml",
+        "DATASET_DIR_PATH": "/path/to/dataset",
+        "RESULTS_DIR_PATH": "/path/to/results",
+        "SAMPLE_SIZE": 6,
+        "SAMPLE_GRID_SIZE": [3, 2],
+        "SAMPLE_PLOT_SIZE": [16, 16],
+        "PROMPT": "defects are irregularities that can affect the material's appearance, strength, or utility"
+    },
+    "bottle": {
+        "IMAGE_DIR_PATH": "/path/to/data/bottle/images",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "/path/to/data/bottle/yolo_annotations",
+        "GT_IMAGES_DIRECTORY_PATH": "/path/to/data/bottle/images",
+        "GT_DATA_YAML_PATH": "/path/to/data/bottle/data.yaml"
+    },
+    "hpc": {
+        "ANNOTATIONS_DIRECTORY_PATH": "/path/to/dataset_hpc/train/labels",
+        "IMAGES_DIRECTORY_PATH": "/path/to/dataset_hpc/train/images",
+        "DATASET_DIR_PATH": "/path/to/dataset_hpc",
+        "RESULTS_DIR_PATH": "/path/to/results_hpc"
+    }
+} 

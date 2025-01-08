@@ -5,15 +5,18 @@ import torch
 import cv2
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
-#from autodistill_florence_2 import Florence2
+from autodistill_florence_2 import Florence2
 from autodistill_grounding_dino import GroundingDINO
+from utils.composed_detection_model import ComposedDetectionModel2
 from utils.config import *
 
+#tag = "Florence"
+tag = "DINO"
 # Initialize wandb
 wandb.login()
-wandb.init(project="auto_label", name="Single DINO", tags="DINO")  # Updated project and run name
+wandb.init(project="auto_label", name=f"Single {tag}", tags=f"{tag}")  # Updated project and run name
 reset_folders(DATASET_DIR_PATH, "results")
-
+sahi=False
 # Check if GPU is available
 print("CUDA available:", torch.cuda.is_available())
 
@@ -30,7 +33,19 @@ with open("data/Semantic Map Specification.txt", "r") as file:
 names = re.findall(r"name=([^\n]+)", content)
 names = [name.lower().replace("_", " ") for name in names]
 #ont_list = {(f"{name} surface defect"): name for name in names}
-ont_list = {(f"{name}"): name for name in names}
+#ont_list = {(f"{name}"): name for name in names}
+ont_list = {
+    "Live knots are solid and cannot be knocked loose because they are fixed by growth or position in the wood structure. They are partially or completely intergrown within the growth rings.": "live knot",
+    "Dead knots are loose knots that can fall out of the lumber when pushed or have already fallen out. They are caused by a dead branch that was not fully integrated into the tree before it was cut down.": "dead knot",
+    "A knothole is a hole left where the knot has been knocked out.": "knot missing",
+    "A knot with a crack indicates a knot that has developed a fissure, potentially compromising the wood's structural integrity.": "knot with crack",
+    "Cracks, also known as checks, are ruptures or separations in the wood grain which reduce a board's appearance, strength, or utility.": "crack",
+    "Quartzity refers to a specific type of wood defect characterized by the presence of mineral streaks or deposits within the wood.": "quartzity",
+    "Resin pockets are accumulations of resin within the wood, often appearing as dark, sticky areas that can affect finishing processes.": "resin",
+    "Marrow in wood refers to the presence of pith or soft tissue remnants, which can appear as a defect affecting the uniformity of the wood.": "marrow",
+    "Blue stain is a discoloration caused by fungal infection, leading to blue or grayish streaks in the wood without affecting its structural integrity.": "blue stain",
+    "Overgrown defects occur when a tree grows over a wound or foreign object, leading to irregular wood grain patterns and potential weaknesses.": "overgrown"
+}
 print(ont_list)# Convert mapping into a table
 table = wandb.Table(columns=["prompt", "caption"])
 for key, value in ont_list.items():
@@ -44,7 +59,11 @@ wandb.log({"Prompt Table": table})
 convert_bmp_to_jpg(IMAGE_DIR_PATH)
 
 # Initiate base model and autolabel
-base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
+if tag == "DINO":
+    base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
+if tag == "Florence":
+    base_model = Florence2(ontology=CaptionOntology(ont_list))
+
 
 # Log model settings
 wandb.config.update({
@@ -52,6 +71,7 @@ wandb.config.update({
     "ontology": ont_list,
     "input_folder": IMAGE_DIR_PATH,
     "output_folder": DATASET_DIR_PATH,
+    "sahi": sahi
 })
 
 # Label the dataset
@@ -59,7 +79,7 @@ dataset = base_model.label(
     input_folder=IMAGE_DIR_PATH,
     extension=".png",
     output_folder=DATASET_DIR_PATH,
-    sahi=True
+    sahi=sahi
 )
 
 dataset = sv.DetectionDataset.from_yolo(
@@ -83,15 +103,8 @@ compare_plot(dataset, gt_dataset)
 
 # Log the size of the dataset
 wandb.log({"dataset_size": len(dataset)})
-
 # Save results images to wandb
-for image_name in dataset.images.keys():
-    image = dataset.images[image_name]
-    wandb.log({f"annotated_image_{image_name}": wandb.Image(image)})
-
-# Save the results folder images
-results_folder_path = "results/sample_annotated_images_grid.png"
-wandb.log({"sample_images": wandb.Image(results_folder_path)})
+plot_annotated_images(dataset, SAMPLE_SIZE, "results/sample_annotated_images_grid.png")
 
 # Finish the wandb run
 wandb.finish()
