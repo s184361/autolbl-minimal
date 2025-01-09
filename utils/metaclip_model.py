@@ -57,11 +57,10 @@ class MetaCLIP(DetectionBaseModel):
                     probs.append(self.compare(image_features, embedding[0]))
                 probs = [probs]
             else:
-                # text = open_clip.tokenize(prompts)
-                text = self.tokenizer(prompts, padding=True, truncation=True, return_tensors="pt")
-                text_features = self.model.encode_text(text)
+                text_inputs = self.tokenizer(prompts, padding=True, truncation=True, return_tensors="pt").to(DEVICE)
+                text_features = self.model.get_text_features(**text_inputs)
 
-                probs = (image_features @ text_features.T).softmax(dim=-1)
+                probs = (image_features @ text_features.T).softmax(dim=-1).cpu()
         # create dictionary of prompt: probability
         probs = list(zip(prompts, probs[0]))
 

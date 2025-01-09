@@ -11,7 +11,7 @@ from autodistill.detection import CaptionOntology
 # from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model_classifier import MetaCLIP
-from utils.config import *
+from utils.config_work3 import *
 from itertools import chain
 import wandb
 
@@ -65,8 +65,9 @@ def merge_datasets(train_dataset: sv.ClassificationDataset, valid_dataset: sv.Cl
 
 def main():
     # Check if GPU is available
-    IMAGE_DIR_PATH = f"{HOME}/croped_images2"
-    DATASET_DIR_PATH = f"{HOME}/dataset"
+    #IMAGE_DIR_PATH = f"{HOME}/croped_images2"
+    #DATASET_DIR_PATH = f"{HOME}/dataset"
+    f"{HOME}/croped_images3"
     GT_IMAGES_DIRECTORY_PATH = IMAGE_DIR_PATH
     GT_ANNOTATIONS_DIRECTORY_PATH = IMAGE_DIR_PATH
 
@@ -112,17 +113,32 @@ def main():
         os.path.join(EMBEDING_DIR_PATH, "144100014.jpg"): "blue stain"
     }
     """
+    """
     images_to_classes = {
-        os.path.join(f"{HOME}/croped_images", "live knot.jpg"): "live knot",
-        os.path.join(f"{HOME}/croped_images", "dead knot.jpg"): "dead knot",
-        os.path.join(f"{HOME}/croped_images", "knot missing.jpg"): "knot missing",
-        os.path.join(f"{HOME}/croped_images", "knot with crack.jpg"): "knot with crack",
-        os.path.join(f"{HOME}/croped_images", "crack.jpg"): "crack",
-        os.path.join(f"{HOME}/croped_images", "quartzity.jpg"): "quartzity",
-        os.path.join(f"{HOME}/croped_images", "resin.jpg"): "resin",
-        os.path.join(f"{HOME}/croped_images", "marrow.jpg"): "marrow",
-        os.path.join(f"{HOME}/croped_images", "blue stain.jpg"): "blue stain",
-        os.path.join(f"{HOME}/croped_images", "overgrown.jpg"): "overgrown",
+        os.path.join(f"{HOME2}/croped_images", "100000010_live knot.jpg"): "live knot",
+        os.path.join(f"{HOME2}/croped_images", "100000009_dead knot.jpg"): "dead knot",
+        os.path.join(f"{HOME2}/croped_images", "knot missing.jpg"): "knot missing",
+        os.path.join(f"{HOME2}/croped_images", "100000034_knot with crack.jpg"): "knot with crack",
+        os.path.join(f"{HOME2}/croped_images", "100000074_crack.jpg"): "crack",
+        os.path.join(f"{HOME2}/croped_images", "100000000_quartzity.jpg"): "quartzity",
+        os.path.join(f"{HOME2}/croped_images", "100000013_resin.jpg"): "resin",
+        os.path.join(f"{HOME2}/croped_images", "100000002_marrow.jpg"): "marrow",
+        os.path.join(f"{HOME2}/croped_images", "overgrown.jpg"): "overgrown",
+        os.path.join(f"{HOME2}/croped_images", "blue stain.jpg"): "blue stain"
+    }
+    """
+
+    images_to_classes = {
+        os.path.join(f"{HOME2}/croped_images", "100000010_live knot.jpg"): "knot",
+        os.path.join(f"{HOME2}/croped_images", "100000009_dead knot.jpg"): "knot",
+        os.path.join(f"{HOME2}/croped_images", "knot missing.jpg"): "knot missing",
+        os.path.join(f"{HOME2}/croped_images", "100000034_knot with crack.jpg"): "knot with crack",
+        os.path.join(f"{HOME2}/croped_images", "100000074_crack.jpg"): "crack",
+        os.path.join(f"{HOME2}/croped_images", "100000000_quartzity.jpg"): "quartzity",
+        os.path.join(f"{HOME2}/croped_images", "100000013_resin.jpg"): "resin",
+        os.path.join(f"{HOME2}/croped_images", "100000002_marrow.jpg"): "marrow",
+        os.path.join(f"{HOME2}/croped_images", "overgrown.jpg"): "overgrown",
+        os.path.join(f"{HOME2}/croped_images", "blue stain.jpg"): "blue stain"
     }
     images_to_classes = dict(sorted(images_to_classes.items(), key=lambda item: item[1]))
     wandb.login()
@@ -142,7 +158,7 @@ def main():
     convert_bmp_to_jpg(IMAGE_DIR_PATH)
 
     # Create a combined model that uses both GroundingDINO for detection and MetaCLIP for classification
-    model = class_model
+    model = class_model 
 
     # Label dataset
     dataset = model.label(
@@ -193,8 +209,9 @@ def main():
     # evaluate the dataset
     # update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
     gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    compare_classes(gt_dataset, dataset)
-    compare_image_keys(gt_dataset, dataset)
+    summarize_annotation_distributions(gt_dataset)
+    #compare_classes(gt_dataset, dataset)
+    #compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
     #compare_plot(dataset,gt_dataset)
     #classification_table(dataset,gt_dataset)

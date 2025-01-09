@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 from utils.config_wood import *
 import wandb
 
-#tag = "Florence"
-tag = "DINO"
+tag = "Florence"
+#tag = "DINO"
 # Initialize wandb
 wandb.login()
 wandb.init(project="auto_label", name=f"Wood {tag}", tags=f"{tag}")  # Updated project and run name
@@ -89,6 +89,8 @@ plot_annotated_images(dataset, SAMPLE_SIZE, "results/sample_annotated_images_gri
 print(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
 gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
 print(gt_dataset)
+#summarize
+summarize_annotation_distributions(gt_dataset)
 compare_classes(gt_dataset, dataset)
 compare_image_keys(gt_dataset, dataset)
 evaluate_detections(dataset, gt_dataset)

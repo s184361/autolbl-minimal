@@ -18,11 +18,12 @@ import wandb
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
-    parser.add_argument('--config', type=str, required=True, help='Path to the JSON configuration file.')
-    parser.add_argument('--section', type=str, required=True, help='Section of the configuration to use.')
-    parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP'], required=True, help='Model to use for autodistill.')
+    parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
+    parser.add_argument('--section', type=str, default='default', help='Section of the configuration to use.')
+    parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP'], default='DINO', help='Model to use for autodistill.')
     parser.add_argument('--tag', type=str, default='default', help='Tag for the wandb run.')
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
+    parser.add_argument('--reload', action='store_true', help='Reload the dataset from YOLO format.')
     return parser.parse_args()
 
 def main():
@@ -34,7 +35,7 @@ def main():
 
     # Initialize wandb
     wandb.login()
-    wandb.init(project="auto_label", name=f"{args.model}_{args.tag}", tags=[args.tag])
+    wandb.init(project="auto_HPC2", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
@@ -57,13 +58,24 @@ def main():
     plt.savefig(os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_images_grid.png"))
 
     # Define ontology
+    """
     with open("data/Semantic Map Specification.txt", "r") as file:
         content = file.read()
     names = re.findall(r"name=([^\n]+)", content)
-    names = [name.lower().replace("_", " ") for name in names]
+    names = sorted([name.lower().replace("_", " ") for name in names])
     ont_list = {name: name for name in names}
     print(ont_list)
-
+    """
+    ont_list = {
+        "defect": "defect",
+        "anomaly": "defect",
+        "irregularity": "defect",
+        "error": "defect",
+        "fault": "defect",
+        "flaw": "defect",
+        "bug": "defect",
+        "mistake": "defect",
+    }      
     # Initialize the model
     if args.model == "DINO":
         base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
@@ -72,11 +84,32 @@ def main():
     elif args.model == "SAMHQ":
         base_model = SAMHQ(CaptionOntology(ontology=ont_list))
     elif args.model == "Combined":
-        detection_model = GroundingDINO(ontology=CaptionOntology(ont_list))
-        classification_model = MetaCLIP(EmbeddingOntologyImage(ont_list))
+        detection_model = GroundingDINO(ontology=CaptionOntology({config["PROMPT"]: "defect"}))
+        classification_model = MetaCLIP(ontology=CaptionOntology(ont_list))
+        base_model = ComposedDetectionModel2(detection_model=detection_model, classification_model=classification_model)
+    elif args.model == "Combined2":
+        detection_model = Florence2(ontology=CaptionOntology({config["PROMPT"]: "defect"}))
+        classification_model = MetaCLIP(ontology=CaptionOntology(ont_list))
         base_model = ComposedDetectionModel2(detection_model=detection_model, classification_model=classification_model)
     elif args.model == "MetaCLIP":
-        base_model = MetaCLIP(EmbeddingOntologyImage(ont_list))
+        HOME2 = os.getcwd()
+        images_to_classes = {
+            os.path.join(f"{HOME2}/croped_images", "100000010_live knot.jpg"): "knot",
+            os.path.join(f"{HOME2}/croped_images", "100000009_dead knot.jpg"): "knot",
+            os.path.join(f"{HOME2}/croped_images", "knot missing.jpg"): "knot missing",
+            os.path.join(f"{HOME2}/croped_images", "100000034_knot with crack.jpg"): "knot with crack",
+            os.path.join(f"{HOME2}/croped_images", "100000074_crack.jpg"): "crack",
+            os.path.join(f"{HOME2}/croped_images", "100000000_quartzity.jpg"): "quartzity",
+            os.path.join(f"{HOME2}/croped_images", "100000013_resin.jpg"): "resin",
+            os.path.join(f"{HOME2}/croped_images", "100000002_marrow.jpg"): "marrow",
+            os.path.join(f"{HOME2}/croped_images", "overgrown.jpg"): "overgrown",
+            os.path.join(f"{HOME2}/croped_images", "blue stain.jpg"): "blue stain"
+        }
+    # Create embedding ontology and models
+        images_to_classes = dict(sorted(images_to_classes.items(), key=lambda item: item[1]))
+        img_emb = EmbeddingOntologyImage(images_to_classes)
+        base_model = MetaCLIP(img_emb)
+        
 
     # Log model settings
     wandb.config.update({
@@ -86,20 +119,34 @@ def main():
         "output_folder": config['DATASET_DIR_PATH'],
         "sahi": args.sahi
     })
+    table = wandb.Table(columns=["prompt", "caption"])
+    for key, value in ont_list.items():
+        table.add_data(key, value)
 
-    # Label the dataset
+    # Log the table
+    wandb.log({"Prompt Table": table})
+
     dataset = base_model.label(
         input_folder=config['IMAGE_DIR_PATH'],
         extension=".png",
         output_folder=config['DATASET_DIR_PATH'],
         sahi=args.sahi
     )
-
-    dataset = sv.DetectionDataset.from_yolo(
-        images_directory_path=config['IMAGES_DIRECTORY_PATH'],
-        annotations_directory_path=config['ANNOTATIONS_DIRECTORY_PATH'],
-        data_yaml_path=config['DATA_YAML_PATH']
-    )
+    #check if the dataset is empty
+    if len(dataset) == 0:
+        dataset = base_model.label(
+            input_folder=config['IMAGE_DIR_PATH'],
+            extension=".jpg",
+            output_folder=config['DATASET_DIR_PATH'],
+            sahi=args.sahi
+        )
+    if args.reload:
+        dataset = sv.DetectionDataset.from_yolo(
+            images_directory_path=config['IMAGES_DIRECTORY_PATH'],
+            annotations_directory_path=config['ANNOTATIONS_DIRECTORY_PATH'],
+            data_yaml_path=config['DATA_YAML_PATH']
+        )
+    
     print("Dataset size:", len(dataset))
 
     # Plot annotated images

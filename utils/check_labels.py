@@ -13,7 +13,7 @@ import wandb
 import shutil
 from typing import Callable, List, Optional, Tuple
 import subprocess
-
+from joblib import Parallel, delayed
 def print_supervision_version():
     print("Supervision version:", sv.__version__)
 
@@ -42,6 +42,7 @@ def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
                 parts = line.strip().split()
                 if len(parts) == 5:
                     label = parts[0].lower().replace("_", " ")
+                    parts[1:] = [part.replace(",", ".") for part in parts[1:]]
                     x1, y1, x2, y2 = map(float, parts[1:])
                     label_number = label_map.get(label)
                     if label_number is None:
@@ -90,51 +91,45 @@ def compare_image_keys(gt_dataset, dataset):
         else:
             print(f"Key {key} in GT dataset")
 
+def evaluate_detections(dataset, gt_dataset, results_dir="results"):
+    # Set confidence for all annotations in both datasets
+    def set_confidence(annotations):
+        for key in annotations.keys():
+            for i in range(len(annotations[key])):
+                annotations[key][i].confidence = np.ones_like(annotations[key][i].class_id)
 
-def evaluate_detections(dataset, gt_dataset,results_dir="results"):
+    set_confidence(dataset.annotations)
+    set_confidence(gt_dataset.annotations)
 
-    for key in dataset.annotations.keys():
-        for i in range(len(dataset.annotations[key])):
-            dataset.annotations[key].confidence = np.ones_like(
-                dataset.annotations[key].class_id
-            )
-    for key in gt_dataset.annotations.keys():
-        for i in range(len(gt_dataset.annotations[key])):
-            gt_dataset.annotations[key].confidence = np.ones_like(
-                gt_dataset.annotations[key].class_id
-            )
-    # load confidence from labels confidence-annotation.txt
-    """ for image_path, _, annotation in dataset:
-        key = os.path.basename(image_path)
-        directory_path = os.path.dirname(image_path)
-        base_path, _ = os.path.split(directory_path)
-        base_path, _ = os.path.split(base_path)
-        with open(f"{base_path}/labels/confidence-{key.replace('.jpg', '.txt')}") as f:
-            lines = f.readlines()
-        for i in range(len(annotation)):
-            annotation[i].confidence = float(lines[i].split()[1]) """
-    predictions = []
-    targets = []
+    # Create ground truth dictionary
     gt_dict = {
         os.path.basename(image_path).replace(".png", ".jpg"): annotation
         for image_path, _, annotation in gt_dataset
     }
+
+    # Prepare predictions and targets
+    predictions = []
+    targets = []
+
     for image_path, _, annotation in dataset:
         key = os.path.basename(image_path)
+        annotation.confidence = np.ones_like(annotation.class_id)
         predictions.append(annotation)
         if key in gt_dict:
+            annotation = gt_dict[key]
+            annotation.confidence = np.ones_like(annotation.class_id)
             targets.append(gt_dict[key])
+
+    # Compute confusion matrix
     if isinstance(dataset, sv.ClassificationDataset):
-        confusion_matrix = np.zeros((len(gt_dataset.classes),len(dataset.classes)))
-        for i in range(len(targets)):
-            target = int(targets[i].class_id)
-            pred = int(predictions[i].class_id)
-            confusion_matrix[target,pred] +=1
+        confusion_matrix = np.zeros((len(gt_dataset.classes), len(dataset.classes)))
+        for target, pred in zip(targets, predictions):
+            confusion_matrix[int(target.class_id), int(pred.class_id)] += 1
         fig = plot_confusion_class(
             input=confusion_matrix,
-            classes = gt_dataset.classes,
-            normalize=True)
-
+            classes=gt_dataset.classes,
+            normalize=True
+        )
     else:
         confusion_matrix = sv.ConfusionMatrix.from_detections(
             predictions=predictions,
@@ -142,86 +137,79 @@ def evaluate_detections(dataset, gt_dataset,results_dir="results"):
             classes=dataset.classes,
             iou_threshold=0.5,
         )
-        fig =confusion_matrix.plot(normalize=True)
-        confusion_matrix = confusion_matrix.matrix
-        # Remove last row and last column
-        confusion_matrix = confusion_matrix[:-1, :-1]
+        fig = confusion_matrix.plot(normalize=True)
+        confusion_matrix = confusion_matrix.matrix[:-1, :-1]  # Remove last row and column
+
     acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
-    acc = np.append(acc,confusion_matrix.diagonal().sum()/confusion_matrix.sum())
+    acc = np.append(acc, confusion_matrix.diagonal().sum() / confusion_matrix.sum())
     print("acc", acc)
+
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
         tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[acc])
         wandb.log({"Accuracies": tab})
-    except:
-        print("WandB not available")
+    except Exception as e:
+        print(f"WandB logging error: {e}")
 
     plt.savefig(f"{results_dir}/confusion_matrix.png")
     print(confusion_matrix)
 
+    # Compute mAP if both datasets are DetectionDataset
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
         map_metric = sv.metrics.MeanAveragePrecision()
         map_result = map_metric.update(predictions, targets).compute()
         print(map_result)
-        # Create a DataFrame from the mAP scores
-        #map_scores = map_result.mAP_scores
-        #map_data = pd.DataFrame({
-        #    "Class": dataset.classes + ["all"],
-        #    "mAP Score": np.append(map_scores,np.array([0])),#append overall mAP
-        #    "Accuracies:": acc
-        #})
-        #print("df",map_data)
-        # Log the DataFrame to wandb
-        #table = wandb.Table(dataframe=map_data,allow_mixed_types=True)
-        #wandb.log({"mAP Results": table})
-        
+
         map_result.plot()
         fig = plt.gcf()  # grab last figure
         try:
             wandb.log({"mAP": wandb.Image(fig)})
-        except:
-            print("WandB not available")
+        except Exception as e:
+            print(f"WandB logging error: {e}")
         plt.savefig(f"{results_dir}/mAP.png")
 
-def compare_plot(dataset, gt_dataset,results_dir="results"):
+def compare_plot(dataset, gt_dataset, results_dir="results"):
+    # Ensure confidence is set for all annotations in both datasets
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
-            dataset.annotations[key].confidence = np.ones_like(
-                dataset.annotations[key].class_id
+            dataset.annotations[key][i].confidence = np.ones_like(
+                dataset.annotations[key][i].class_id
             )
     for key in gt_dataset.annotations.keys():
         for i in range(len(gt_dataset.annotations[key])):
-            gt_dataset.annotations[key].confidence = np.ones_like(
-                gt_dataset.annotations[key].class_id
+            gt_dataset.annotations[key][i].confidence = np.ones_like(
+                gt_dataset.annotations[key][i].class_id
             )
+
     img = []
     name = []
+
+    # Process dataset images
     for image_path, _, annotation in dataset:
         image = cv2.imread(image_path)
         classes = dataset.classes
         result = annotation
         try:
             img.append(plot(image=image, classes=classes, detections=result, raw=True))
-        except:
+        except Exception as e:
+            print(f"Error plotting inference image: {e}")
             img.append(plot(image=image, classes=[str(i) for i in range(100)], detections=result, raw=True))
         name.append(os.path.basename(image_path))
 
+    # Process ground truth images
     for image_path, _, annotation in gt_dataset:
-
         classes = gt_dataset.classes
         name_gt = os.path.splitext(os.path.basename(image_path))[0] + ".jpg"
         if name_gt in name:
             image = cv2.imread(image_path)
             result = annotation
-            # check if annotation is empty
             if len(result) == 0:
-                # if empty, plot only the image
                 img_gt = image
             else:
                 try:
                     img_gt = plot(image=image, classes=classes, detections=result, raw=True)
-                except:
-                    print("Comparison image not in WandB")
+                except Exception as e:
+                    print(f"Error plotting ground truth image: {e}")
                     img_gt = plot(image=image, classes=[str(i) for i in range(100)], detections=result, raw=True)
 
             # Find fig index
@@ -231,7 +219,7 @@ def compare_plot(dataset, gt_dataset,results_dir="results"):
             plt.imshow(img[index])
             plt.title("Inference")
             plt.axis("off")
-            fig.add_subplot(2, 1, 2)
+            fig.add_subplot(2, 2, 1)
             plt.imshow(img_gt)
             plt.title("Ground Truth")
             plt.axis("off")
@@ -241,8 +229,8 @@ def compare_plot(dataset, gt_dataset,results_dir="results"):
 
             try:
                 wandb.log({f"Annotated Image {name_gt}": wandb.Image(fig)})
-            except:
-                print("WandB not available")
+            except Exception as e:
+                print(f"WandB logging error: {e}")
             plt.savefig(os.path.join(results_dir, name_gt), dpi=1200)
             plt.close(fig)
 
@@ -368,15 +356,17 @@ def create_annotations_dataframe(annotations_directory_path, gt_data_yaml_path):
     return df
 
 
-def convert_bmp_to_jpg(image_dir_path):
+def convert_bmp_to_jpg(image_dir_path,delete_bmp=False):
     for root, dirs, files in os.walk(image_dir_path):
         for file in files:
             if file.endswith(".bmp"):
                 img = cv2.imread(os.path.join(root, file))
                 cv2.imwrite(os.path.join(root, file.replace(".bmp", ".jpg")), img)
+                if delete_bmp:
+                    os.remove(os.path.join(root, file))
 
 
-def load_images_and_annotations(images_dir, annotations_dir, output_dir):
+def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
@@ -438,18 +428,19 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
             cropped_image = image[y1:y2, x1:x2]
 
             # use yaml file class_id keys
-            keys = [
-                "live knot",
-                "dead knot",
-                "knot missing",
-                "knot with crack",
-                "crack",
-                "quartzity",
-                "resin",
-                "marrow",
-                "blue stain",
-                "overgrown"
-            ]
+            if keys is None:
+                keys = [
+                    "live knot",
+                    "dead knot",
+                    "knot missing",
+                    "knot with crack",
+                    "crack",
+                    "quartzity",
+                    "resin",
+                    "marrow",
+                    "blue stain",
+                    "overgrown"
+                ]
             # output_file_name = f"{image_file}_{keys[int(class_id)]}.jpg"
 
             # Save the cropped image
@@ -471,7 +462,30 @@ def load_images_and_annotations(images_dir, annotations_dir, output_dir):
                 f.write(annotation_str)
 
         print(f"Processed {image_file}, saved cropped images to {output_dir}.")
+def create_boundingboxes_defect_annotations(input_dir, output_dir):
+    """
+    Create a new directory with BoundingBox annotations where the first number in each line is switched to 1.
 
+    Args:
+        input_dir: Path to the input directory containing original BoundingBox annotations.
+        output_dir: Path to the output directory where modified annotations will be saved.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".txt"):
+            input_file_path = os.path.join(input_dir, filename)
+            output_file_path = os.path.join(output_dir, filename)
+
+            with open(input_file_path, "r") as infile, open(output_file_path, "w") as outfile:
+                lines = infile.readlines()
+                for line in lines:
+                    parts = line.strip().split()
+                    if len(parts) == 5:
+                        parts[0] = "0"  # Switch the first number to 0
+                        outfile.write(" ".join(parts) + "\n")
+
+    print(f"Processed annotations saved to {output_dir}")
 
 def reset_folders(dataset_folder_path, results_folder_path):
     """
@@ -501,39 +515,45 @@ def reset_folders(dataset_folder_path, results_folder_path):
     os.makedirs(results_folder_path, exist_ok=True)
     print(f"Created new results folder: {results_folder_path}")
 
+
+def process_image(image, annotations, mask_annotator, box_annotator):
+    annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
+    annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
+    return annotated_image
+
 def plot_annotated_images(dataset, sample_size, save_path):
     from utils.config import SAMPLE_GRID_SIZE, SAMPLE_PLOT_SIZE
-    image_names = list(dataset.images.keys())[:sample_size]
-
+    images =[]
+    image_names = []
+    annotations = []
     mask_annotator = sv.MaskAnnotator()
     box_annotator = sv.BoxAnnotator()
+    for image_path, img, annotation in dataset:
+        image_names.append(os.path.basename(image_path))
+        images.append(process_image(img, annotation, mask_annotator, box_annotator))
+        if len(images) == sample_size:
+            break
 
-    images = []
-    for image_name in image_names:
-        image = dataset.images[image_name]
-        annotations = dataset.annotations[image_name]
-        labels = [dataset.classes[class_id] for class_id in annotations.class_id]
-        annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
-        annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
-        images.append(annotated_image)
-        sv.plot_images_grid(
-                images=images,
-                titles=image_names,
-                grid_size=SAMPLE_GRID_SIZE,
-                size=SAMPLE_PLOT_SIZE,
-            )
-        plt.axis("off")
-        fig = plt.gcf()
+    #free up memory
+    del dataset
+
+    sv.plot_images_grid(
+        images=images,
+        titles=image_names,
+        grid_size=SAMPLE_GRID_SIZE,
+        size=SAMPLE_PLOT_SIZE,
+    )
+    plt.axis("off")
+    fig = plt.gcf()
+    
     # Log the combined grid of annotated images to wandb
     try:
-        print("modify back")
         wandb.log({"Annotated Images Grid": [wandb.Image(fig)]})
     except:
         # Save the images to the specified save path if wandb is not available
         print("WandB not available")
     plt.savefig(save_path, dpi=1200)
     print(f"Saved annotated images grid to {save_path}.")
-
 
 def plot_confusion_class(
         input,
@@ -606,11 +626,54 @@ def plot_confusion_class(
             )
     return fig
 
+def summarize_annotation_distributions(gt_dataset):
+    """
+    Summarizes the distributions of annotations per image and the distribution of classes among all annotations.
+
+    Args:
+        gt_dataset: Ground truth dataset containing images and annotations.
+
+    Returns:
+        dict: Dictionary containing summary statistics.
+    """
+    annotation_counts_per_image = []
+    class_distribution = {class_name: 0 for class_name in gt_dataset.classes}
+
+    for _, _, annotations in gt_dataset:
+        annotation_counts_per_image.append(len(annotations))
+        for class_id in annotations.class_id:
+            class_name = gt_dataset.classes[class_id]
+            class_distribution[class_name] += 1
+
+    summary = {
+        "annotations_per_image": {
+            "mean": np.mean(annotation_counts_per_image),
+            "std": np.std(annotation_counts_per_image),
+            "min": np.min(annotation_counts_per_image),
+            "max": np.max(annotation_counts_per_image),
+        },
+        "class_distribution": class_distribution,
+    }
+    try:
+        wandb.log({"Annotation Summary": wandb.Table(dataframe=pd.DataFrame.from_dict(summary["class_distribution"], orient='index', columns=['count']))})
+    except:
+        print("WandB not available")
+    print("Annotations per image:")
+    print(f"Mean: {summary['annotations_per_image']['mean']:.2f}")
+    print(f"Std: {summary['annotations_per_image']['std']:.2f}")
+    print(f"Min: {summary['annotations_per_image']['min']}")
+    print(f"Max: {summary['annotations_per_image']['max']}")
+    print("\nClass distribution:")
+    for class_name, count in summary["class_distribution"].items():
+        print(f"{class_name}: {count}")
+    return summary
 def classificaiton_table(
         dataset,
         gt_dataset):
     "creates wandb table"
 def main():
+    import config as config
+    """
     wandb.init()
     print_supervision_version()
     dataset = load_dataset(
@@ -622,10 +685,34 @@ def main():
     compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
     compare_plot(dataset,gt_dataset)
-    #load_images_and_annotations(
+    load_images_and_annotations(
     #    IMAGE_DIR_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images2"
     #)
-
+    """
+    #convert_bmp_to_jpg("/work3/s184361/data/Images",delete_bmp=True)
+    print(os.path.exists("/work3/s184361/data/BoudingBoxes"))
+    #update_labels("/work3/s184361/data/BoudingBoxes", GT_DATA_YAML_PATH)
+    keys = [
+        "blue stain",
+        "crack",
+        "dead knot",
+        "knot missing",
+        "knot with crack",
+        "live knot",
+        "marrow",
+        "overgrown",
+        "quartzity",
+        "resin"
+    ]
+    """
+    crop_gt_images(
+        "/work3/s184361/data/Images",
+        "/work3/s184361/data/BoudingBoxes",
+        "/work3/s184361/data/croped_images3",
+        keys=keys,
+    )
+    """
+    create_boundingboxes_defect_annotations("/zhome/4a/b/137804/Desktop/autolbl/data/BoudingBoxes", "/zhome/4a/b/137804/Desktop/autolbl/data/BoudingBoxes2")
     # single_annotation_files = find_single_annotation_files(
     #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
     # )
