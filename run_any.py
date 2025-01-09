@@ -148,7 +148,8 @@ def main():
         )
     
     print("Dataset size:", len(dataset))
-
+    # Log the size of the dataset
+    wandb.log({"dataset_size": len(dataset)})
     # Plot annotated images
     plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
 
@@ -160,8 +161,7 @@ def main():
     evaluate_detections(dataset, gt_dataset)
     compare_plot(dataset, gt_dataset)
 
-    # Log the size of the dataset
-    wandb.log({"dataset_size": len(dataset)})
+
 
     # Finish the wandb run
     wandb.finish()
