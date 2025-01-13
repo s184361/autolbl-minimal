@@ -116,5 +116,27 @@
             16
         ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
+    },
+    "debug": {
+        "HOME": "/zhome/4a/b/137804/Desktop/autolbl",
+        "IMAGE_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/images_small",
+        "ANNOTATIONS_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset/train/labels",
+        "IMAGES_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset/train/images",
+        "DATA_YAML_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset/data.yaml",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes2",
+        "GT_IMAGES_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/images_small",
+        "GT_DATA_YAML_PATH": "/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes2/data.yaml",
+        "DATASET_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset",
+        "RESULTS_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/results",
+        "SAMPLE_SIZE": 6,
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
+        "PROMPT": "defects spots anomalies misscoloration irregularities"
     }
 }

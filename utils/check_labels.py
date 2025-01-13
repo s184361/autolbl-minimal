@@ -207,6 +207,8 @@ def compare_plot(dataset, gt_dataset, results_dir="results"):
                 img_gt = image
             else:
                 try:
+                    if result.confidence is None:
+                        result.confidence = np.ones_like(result.class_id)
                     img_gt = plot(image=image, classes=classes, detections=result, raw=True)
                 except Exception as e:
                     print(f"Error plotting ground truth image: {e}")
@@ -214,18 +216,14 @@ def compare_plot(dataset, gt_dataset, results_dir="results"):
 
             # Find fig index
             index = name.index(name_gt)
-            fig = plt.figure()
-            fig.add_subplot(2, 1, 1)
-            plt.imshow(img[index])
-            plt.title("Inference")
-            plt.axis("off")
-            fig.add_subplot(2, 2, 1)
-            plt.imshow(img_gt)
-            plt.title("Ground Truth")
-            plt.axis("off")
-
-            # Add spacing between figures
-            plt.subplots_adjust(hspace=0.5)
+            fig, axes = plt.subplots(1, 2, figsize=(12, 6), tight_layout=True)
+            axes[0].imshow(img[index])
+            axes[0].set_title("Inference")
+            axes[0].axis("off")
+            axes[1].imshow(img_gt)
+            axes[1].set_title("Ground Truth")
+            axes[1].axis("off")
+            fig.patch.set_facecolor('none')
 
             try:
                 wandb.log({f"Annotated Image {name_gt}": wandb.Image(fig)})
@@ -690,7 +688,7 @@ def main():
     #)
     """
     #convert_bmp_to_jpg("/work3/s184361/data/Images",delete_bmp=True)
-    print(os.path.exists("/work3/s184361/data/BoudingBoxes"))
+    print(os.path.exists("/work3/s184361/data/BoundingBoxes"))
     #update_labels("/work3/s184361/data/BoudingBoxes", GT_DATA_YAML_PATH)
     keys = [
         "blue stain",
@@ -712,7 +710,7 @@ def main():
         keys=keys,
     )
     """
-    create_boundingboxes_defect_annotations("/zhome/4a/b/137804/Desktop/autolbl/data/BoudingBoxes", "/zhome/4a/b/137804/Desktop/autolbl/data/BoudingBoxes2")
+    create_boundingboxes_defect_annotations("/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes", "/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes2")
     # single_annotation_files = find_single_annotation_files(
     #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
     # )

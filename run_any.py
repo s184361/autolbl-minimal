@@ -15,11 +15,10 @@ from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model import MetaCLIP
 import wandb
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
     parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
-    parser.add_argument('--section', type=str, default='default', help='Section of the configuration to use.')
+    parser.add_argument('--section', type=str, default='defect', help='Section of the configuration to use.')
     parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP'], default='DINO', help='Model to use for autodistill.')
     parser.add_argument('--tag', type=str, default='default', help='Tag for the wandb run.')
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
@@ -35,7 +34,7 @@ def main():
 
     # Initialize wandb
     wandb.login()
-    wandb.init(project="auto_HPC2", name=f"{args.model}_{args.tag}", tags=[args.tag])
+    wandb.init(project="auto_HPC_fix2", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
@@ -66,16 +65,110 @@ def main():
     ont_list = {name: name for name in names}
     print(ont_list)
     """
-    ont_list = {
-        "defect": "defect",
-        "anomaly": "defect",
-        "irregularity": "defect",
-        "error": "defect",
-        "fault": "defect",
-        "flaw": "defect",
-        "bug": "defect",
-        "mistake": "defect",
-    }      
+    ont_list =ont_list = {
+    "wood defect": "defect",
+    "wood grain": "grain",
+    "cat": "cat",
+    "dog": "dog",
+    "cracked wood": "crack",
+    "blurred wood grain": "blurred grain",
+    "contamination on wood": "contamination",
+    "anomaly in wood": "anomaly",
+    "spec on wood": "spec",
+    "smooth wood": "smooth",
+    "damaged wood surface": "damaged surface",
+    "sharp wood splinter": "sharp splinter",
+    "missing wood piece": "missing piece",
+    "dirty wood surface": "dirty surface",
+    "chip in wood": "chip",
+    "wood discoloration": "discoloration",
+    "foreign particle on wood": "particle",
+    "residue on wood": "residue",
+    "broken wood section": "broken section",
+    "polished wood": "polished",
+    "perfect wood grain": "perfect grain",
+    "rough wood texture": "rough texture",
+    "micro-cracks in wood": "micro-cracks",
+    "a knot in wood": "knot",
+    "wood grain pattern": "grain pattern",
+    "splintered wood": "splinter",
+    "blurry wood defect": "blurry defect",
+    "sharp wood edge": "sharp edge",
+    "rough wood edge": "rough edge",
+    "soft wood section": "soft wood",
+    "hardwood": "hardwood",
+    "a saw mark": "saw mark",
+    "wood scratch": "scratch",
+    "wood dent": "dent",
+    "fuzzy wood grain": "fuzzy grain",
+    "clean wood surface": "clean surface",
+    "wood rot": "rot",
+    "fungus on wood": "fungus",
+    "mold on wood": "mold",
+    "wood chip": "chip",
+    "rough cut": "rough cut",
+    "smooth cut": "smooth cut",
+    "grain misalignment": "misaligned grain",
+    "split wood": "split",
+    "blurry wood imperfection": "blurry imperfection",
+    "sharp wood imperfection": "sharp imperfection",
+    "uneven wood surface": "uneven surface",
+    "peeling wood finish": "peeling finish",
+    "cracked wood surface": "cracked surface",
+    "warped wood": "warped",
+    "bowed wood": "bowed",
+    "cupped wood": "cupped",
+    "twisted wood": "twisted",
+    "burn mark on wood": "burn mark",
+    "water stain on wood": "water stain",
+    "wood scratch marks": "scratch marks",
+    "gouge in wood": "gouge",
+    "faded wood color": "faded color",
+    "blurry knot": "blurry knot",
+    "sharp knot": "sharp knot",
+    "small crack in wood": "small crack",
+    "large crack in wood": "large crack",
+    "wood filler residue": "filler residue",
+    "loose grain": "loose grain",
+    "tight grain": "tight grain",
+    "natural wood imperfection": "natural imperfection",
+    "blurry grain boundary": "blurry boundary",
+    "sharp grain boundary": "sharp boundary",
+    "chipped wood corner": "chipped corner",
+    "frayed wood edge": "frayed edge",
+    "smooth wood finish": "smooth finish",
+    "rough wood finish": "rough finish",
+    "blurry saw mark": "blurry saw mark",
+    "clear saw mark": "clear saw mark",
+    "wood decay": "decay",
+    "insect damage in wood": "insect damage",
+    "termite holes in wood": "termite holes",
+    "sharp splinters": "sharp splinters",
+    "blurry discoloration": "blurry discoloration",
+    "sharp discoloration": "sharp discoloration",
+    "sun-bleached wood": "sun-bleached",
+    "varnish peeling": "peeling varnish",
+    "paint residue on wood": "paint residue",
+    "wood putty mark": "putty mark",
+    "wood patch": "patch",
+    "wood veneer": "veneer",
+    "a plank of wood": "plank",
+    "a tree trunk": "tree trunk",
+    "a wooden board": "board",
+    "a wooden beam": "beam",
+    "a wooden table": "table",
+    "a wooden chair": "chair",
+    "fire damage on wood": "fire damage",
+    "charring on wood": "charring",
+    "wood grain variation": "grain variation",
+    "uneven grain": "uneven grain",
+    "fine cracks in wood": "fine cracks",
+    "deep cracks in wood": "deep cracks",
+    "resin pocket in wood": "resin pocket",
+    "wood glue residue": "glue residue",
+    "wood surface blistering": "blistering"
+}
+
     # Initialize the model
     if args.model == "DINO":
         base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
@@ -112,31 +205,34 @@ def main():
         
 
     # Log model settings
-    wandb.config.update({
-        "model": args.model,
-        "ontology": ont_list,
-        "input_folder": config['IMAGE_DIR_PATH'],
-        "output_folder": config['DATASET_DIR_PATH'],
-        "sahi": args.sahi
-    })
-    table = wandb.Table(columns=["prompt", "caption"])
-    for key, value in ont_list.items():
-        table.add_data(key, value)
-
-    # Log the table
-    wandb.log({"Prompt Table": table})
+    try:
+        wandb.config.update({
+            "model": args.model,
+            "ontology": ont_list,
+            "input_folder": config['IMAGE_DIR_PATH'],
+            "output_folder": config['DATASET_DIR_PATH'],
+            "sahi": args.sahi
+        })
+        table = wandb.Table(columns=["prompt", "caption"])
+        for key, value in ont_list.items():
+            table.add_data(key, value)
+        # Log the table
+        wandb.log({"Prompt Table": table})
+    except:
+        print("No wandb")
 
     dataset = base_model.label(
         input_folder=config['IMAGE_DIR_PATH'],
-        extension=".png",
+        extension=".jpg",
         output_folder=config['DATASET_DIR_PATH'],
         sahi=args.sahi
     )
     #check if the dataset is empty
     if len(dataset) == 0:
+
         dataset = base_model.label(
             input_folder=config['IMAGE_DIR_PATH'],
-            extension=".jpg",
+            extension=".png",
             output_folder=config['DATASET_DIR_PATH'],
             sahi=args.sahi
         )
@@ -149,17 +245,22 @@ def main():
     
     print("Dataset size:", len(dataset))
     # Log the size of the dataset
-    wandb.log({"dataset_size": len(dataset)})
+    try:
+        wandb.log({"dataset_size": len(dataset)})
+    except:
+        pass
     # Plot annotated images
     plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
 
     # Evaluate the dataset
-    update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    #update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    print(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    print("GT Dataset size:", len(gt_dataset))
     compare_classes(gt_dataset, dataset)
-    compare_image_keys(gt_dataset, dataset)
+    #compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
-    compare_plot(dataset, gt_dataset)
+    #compare_plot(dataset, gt_dataset)
 
 
 
