@@ -35,7 +35,7 @@ def main():
 
     # Initialize wandb
     wandb.login()
-    wandb.init(project="auto_wood_bottles", name=f"{args.model}_{args.tag}", tags=[args.tag])
+    wandb.init(project="auto_new_wood_annotations", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
@@ -59,7 +59,7 @@ def main():
 
     if args.ontology in ["", None]:
         # Define ontology
-        """
+        
         with open("data/Semantic Map Specification.txt", "r") as file:
             content = file.read()
         names = re.findall(r"name=([^\n]+)", content)
@@ -170,6 +170,7 @@ def main():
         "wood glue residue": "glue residue",
         "wood surface blistering": "blistering"
     }
+    """
     else:
         print(args.ontology)
         ont_list = dict(item.split(": ") for item in args.ontology.split(", "))
@@ -265,7 +266,8 @@ def main():
     compare_classes(gt_dataset, dataset)
     #compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
-    #compare_plot(dataset, gt_dataset)
+    if len(dataset)<100:
+        compare_plot(dataset, gt_dataset)
 
 
 

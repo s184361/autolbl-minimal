@@ -15,6 +15,9 @@ from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model import MetaCLIP
 import wandb
+
+from autodistill_florence_2 import Florence2Trainer
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
     parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
@@ -24,6 +27,7 @@ def parse_arguments():
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
     parser.add_argument('--reload', action='store_true', help='Reload the dataset from YOLO format.')
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
+    parser.add_argument('fine_tune', type=bool, default=False, help='Fine tune the model.')
     return parser.parse_args()
 
 def main():
@@ -59,117 +63,12 @@ def main():
 
     if args.ontology in ["", None]:
         # Define ontology
-        """
         with open("data/Semantic Map Specification.txt", "r") as file:
             content = file.read()
         names = re.findall(r"name=([^\n]+)", content)
         names = sorted([name.lower().replace("_", " ") for name in names])
         ont_list = {name: name for name in names}
         print(ont_list)
-        """
-        ont_list =ont_list = {
-        "wood defect": "defect",
-        "wood grain": "grain",
-        "cat": "cat",
-        "dog": "dog",
-        "cracked wood": "crack",
-        "blurred wood grain": "blurred grain",
-        "contamination on wood": "contamination",
-        "anomaly in wood": "anomaly",
-        "spec on wood": "spec",
-        "smooth wood": "smooth",
-        "damaged wood surface": "damaged surface",
-        "sharp wood splinter": "sharp splinter",
-        "missing wood piece": "missing piece",
-        "dirty wood surface": "dirty surface",
-        "chip in wood": "chip",
-        "wood discoloration": "discoloration",
-        "foreign particle on wood": "particle",
-        "residue on wood": "residue",
-        "broken wood section": "broken section",
-        "polished wood": "polished",
-        "perfect wood grain": "perfect grain",
-        "rough wood texture": "rough texture",
-        "micro-cracks in wood": "micro-cracks",
-        "a knot in wood": "knot",
-        "wood grain pattern": "grain pattern",
-        "splintered wood": "splinter",
-        "blurry wood defect": "blurry defect",
-        "sharp wood edge": "sharp edge",
-        "rough wood edge": "rough edge",
-        "soft wood section": "soft wood",
-        "hardwood": "hardwood",
-        "a saw mark": "saw mark",
-        "wood scratch": "scratch",
-        "wood dent": "dent",
-        "fuzzy wood grain": "fuzzy grain",
-        "clean wood surface": "clean surface",
-        "wood rot": "rot",
-        "fungus on wood": "fungus",
-        "mold on wood": "mold",
-        "wood chip": "chip",
-        "rough cut": "rough cut",
-        "smooth cut": "smooth cut",
-        "grain misalignment": "misaligned grain",
-        "split wood": "split",
-        "blurry wood imperfection": "blurry imperfection",
-        "sharp wood imperfection": "sharp imperfection",
-        "uneven wood surface": "uneven surface",
-        "peeling wood finish": "peeling finish",
-        "cracked wood surface": "cracked surface",
-        "warped wood": "warped",
-        "bowed wood": "bowed",
-        "cupped wood": "cupped",
-        "twisted wood": "twisted",
-        "burn mark on wood": "burn mark",
-        "water stain on wood": "water stain",
-        "wood scratch marks": "scratch marks",
-        "gouge in wood": "gouge",
-        "faded wood color": "faded color",
-        "blurry knot": "blurry knot",
-        "sharp knot": "sharp knot",
-        "small crack in wood": "small crack",
-        "large crack in wood": "large crack",
-        "wood filler residue": "filler residue",
-        "loose grain": "loose grain",
-        "tight grain": "tight grain",
-        "natural wood imperfection": "natural imperfection",
-        "blurry grain boundary": "blurry boundary",
-        "sharp grain boundary": "sharp boundary",
-        "chipped wood corner": "chipped corner",
-        "frayed wood edge": "frayed edge",
-        "smooth wood finish": "smooth finish",
-        "rough wood finish": "rough finish",
-        "blurry saw mark": "blurry saw mark",
-        "clear saw mark": "clear saw mark",
-        "wood decay": "decay",
-        "insect damage in wood": "insect damage",
-        "termite holes in wood": "termite holes",
-        "sharp splinters": "sharp splinters",
-        "blurry discoloration": "blurry discoloration",
-        "sharp discoloration": "sharp discoloration",
-        "sun-bleached wood": "sun-bleached",
-        "varnish peeling": "peeling varnish",
-        "paint residue on wood": "paint residue",
-        "wood putty mark": "putty mark",
-        "wood patch": "patch",
-        "wood veneer": "veneer",
-        "a plank of wood": "plank",
-        "a tree trunk": "tree trunk",
-        "a wooden board": "board",
-        "a wooden beam": "beam",
-        "a wooden table": "table",
-        "a wooden chair": "chair",
-        "fire damage on wood": "fire damage",
-        "charring on wood": "charring",
-        "wood grain variation": "grain variation",
-        "uneven grain": "uneven grain",
-        "fine cracks in wood": "fine cracks",
-        "deep cracks in wood": "deep cracks",
-        "resin pocket in wood": "resin pocket",
-        "wood glue residue": "glue residue",
-        "wood surface blistering": "blistering"
-    }
     else:
         print(args.ontology)
         ont_list = dict(item.split(": ") for item in args.ontology.split(", "))
@@ -178,6 +77,10 @@ def main():
     if args.model == "DINO":
         base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
     elif args.model == "Florence":
+        if args.fine_tune:
+            model = Florence2Trainer("dataset")
+            model.train(dataset.location, epochs=2)
+            base_model = Florence2(ontology=CaptionOntology(ont_list), model=model)
         base_model = Florence2(ontology=CaptionOntology(ont_list))
     elif args.model == "SAMHQ":
         base_model = SAMHQ(CaptionOntology(ontology=ont_list))
