@@ -34,7 +34,7 @@ def main():
 
     # Initialize wandb
     wandb.login()
-    wandb.init(project="auto_HPC_fix2", name=f"{args.model}_{args.tag}", tags=[args.tag])
+    wandb.init(project="auto_HPC_new", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))

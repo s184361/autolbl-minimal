@@ -275,20 +275,20 @@ if __name__ == "__main__":
     """
     # Convert YOLO annotations to Florence format
 
-    image_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/bottle/images"
-    annotation_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/bottle/yolo_annotations"
-    yaml_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/bottle/data.yaml"
-    florence_output_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/bottle/florence_annotations"
+    image_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/images"
+    annotation_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/yolo_annotations"
+    yaml_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/data.yaml"
+    florence_output_dir = "/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/florence_annotations"
     
-    split_data(base_dir="/zhome/4a/b/137804/Desktop/autolbl/data/bottle", split_ratio=0.8)
+    split_data(base_dir="/zhome/4a/b/137804/Desktop/autolbl/data/wood copy", split_ratio=0.8)
 
     #go through the dataset and convert it to florence
     dir_list = ["train", "valid"]
     for dir in dir_list:
-        image_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/bottle/{dir}/images"
-        annotation_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/bottle/{dir}/labels"
-        yaml_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/bottle/data.yaml"
-        florence_output_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/bottle/florence_annotations/{dir}"
+        image_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/{dir}/images"
+        annotation_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/{dir}/labels"
+        yaml_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/data.yaml"
+        florence_output_dir = f"/zhome/4a/b/137804/Desktop/autolbl/data/wood copy/florence_annotations/{dir}"
 
         #load the dataset
         dataset = sv.DetectionDataset.from_yolo(

@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from transformers import (AdamW, AutoModelForCausalLM, AutoProcessor,
                           get_scheduler)
-
+import wandb
 HOME = os.path.expanduser("~")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -149,13 +149,15 @@ class Florence2Trainer(DetectionTargetModel):
     def __init__(
         self,
         checkpoint: str = "microsoft/Florence-2-base-ft",
+        #checkpoint: str = "microsoft/Florence-2-base",
     ):
         REVISION = "refs/pr/6"
         DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        model = AutoModelForCausalLM.from_pretrained(checkpoint,
+                                                    revision=REVISION,
+                                                    trust_remote_code=True).to(DEVICE)
 
-        model = AutoModelForCausalLM.from_pretrained(
-            checkpoint, trust_remote_code=True, revision=REVISION
-        ).to(DEVICE)
         processor = AutoProcessor.from_pretrained(
             checkpoint, trust_remote_code=True, revision=REVISION
         )
@@ -191,15 +193,26 @@ class Florence2Trainer(DetectionTargetModel):
 
     def train(self, dataset_path, epochs=10, format="coco"):
         if format == "coco":
-            ds_train = sv.DetectionDataset.from_coco(
-                images_directory_path=f"{dataset_path}/train",
-                annotations_path=f"{dataset_path}/train/_annotations.coco.json",
-            )
+            try:
+                ds_train = sv.DetectionDataset.from_coco(
+                    images_directory_path=f"{dataset_path}/train",
+                    annotations_path=f"{dataset_path}/train/_annotations.coco.json",
+                )
 
-            ds_valid = sv.DetectionDataset.from_coco(
-                images_directory_path=f"{dataset_path}/valid",
-                annotations_path=f"{dataset_path}/valid/_annotations.coco.json",
-            )
+                ds_valid = sv.DetectionDataset.from_coco(
+                    images_directory_path=f"{dataset_path}/valid",
+                    annotations_path=f"{dataset_path}/valid/_annotations.coco.json",
+                )
+            except:
+                ds_train = sv.DetectionDataset.from_coco(
+                    images_directory_path=f"{dataset_path}/train",
+                    annotations_path=f"{dataset_path}/train_annotations.coco.json",
+                )
+
+                ds_valid = sv.DetectionDataset.from_coco(
+                    images_directory_path=f"{dataset_path}/valid",
+                    annotations_path=f"{dataset_path}/valid_annotations.coco.json",
+                )
         elif format == "yolo":
             ds_train = sv.DetectionDataset.from_yolo(
                 images_directory_path=f"{dataset_path}/train",
@@ -269,7 +282,7 @@ class Florence2Trainer(DetectionTargetModel):
 
         torch.cuda.empty_cache()
 
-        EPOCHS = 10
+        #EPOCHS = 10
         LR = 5e-6
 
         optimizer = AdamW(self.model.parameters(), lr=LR)
@@ -281,7 +294,7 @@ class Florence2Trainer(DetectionTargetModel):
             num_training_steps=num_training_steps,
         )
 
-        for epoch in range(EPOCHS):
+        for epoch in range(epochs):
             self.model.train()
             train_loss = 0
             for inputs, answers in tqdm(
@@ -310,6 +323,11 @@ class Florence2Trainer(DetectionTargetModel):
 
             self.model.eval()
             val_loss = 0
+            try:
+                table = wandb.Table(columns=["ID", "Image"])
+                class_labels = {v: k for k, v in self.processor.tokenizer.get_vocab().items()}
+            except:
+                pass
             with torch.no_grad():
                 for inputs, answers in tqdm(
                     val_loader, desc=f"Validation Epoch {epoch + 1}/{epochs}"
@@ -327,13 +345,43 @@ class Florence2Trainer(DetectionTargetModel):
                     outputs = self.model(
                         input_ids=input_ids, pixel_values=pixel_values, labels=labels
                     )
+
                     loss = outputs.loss
 
                     val_loss += loss.item()
+                    avg_val_loss = val_loss / len(val_loader)
+                    print(f"Average Validation Loss: {avg_val_loss}")
 
-                avg_val_loss = val_loss / len(val_loader)
-                print(f"Average Validation Loss: {avg_val_loss}")
-
+                    """
+                    for i, (input_id, pixel_value, label) in enumerate(zip(input_ids, pixel_values, labels)):
+                        img = pixel_value.permute(1, 2, 0).cpu().numpy()  # Convert tensor to numpy array
+                        img = (img * 255).astype(np.uint8)  # Convert to uint8
+                        img = Image.fromarray(img)  # Convert to PIL image
+                        print(label[i].item())
+                        box_data = [
+                            {
+                                "position": {
+                                    "minX": box[0].item(),
+                                    "minY": box[1].item(),
+                                    "maxX": box[2].item(),
+                                    "maxY": box[3].item(),
+                                },
+                                "class_id": label[i].item(),
+                                "box_caption": label[i].item(),
+                                "domain": "pixel",
+                            }
+                            for box in outputs.logits[i]
+                        ]
+                        print("box_data", box_data)
+                        box_img = wandb.Image(img, boxes={"predictions": {"box_data": box_data, "class_labels": class_labels}})
+                        table.add_data(input_id.item(), box_img)
+                    """
+                    try:
+                        wandb.log({"train_loss": avg_train_loss})
+                        wandb.log({"val_loss": avg_val_loss})
+                        wandb.log({"validation_table": table})
+                    except Exception as e:
+                        print(f"Error logging to wandb: {e}")
             output_dir = f"./model_checkpoints/epoch_{epoch+1}"
             os.makedirs(output_dir, exist_ok=True)
             self.model.save_pretrained(output_dir)

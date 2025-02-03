@@ -21,13 +21,13 @@ from autodistill_florence_2 import Florence2Trainer
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
     parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
-    parser.add_argument('--section', type=str, default='defect', help='Section of the configuration to use.')
+    parser.add_argument('--section', type=str, default='defects', help='Section of the configuration to use.')
     parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP'], default='DINO', help='Model to use for autodistill.')
     parser.add_argument('--tag', type=str, default='default', help='Tag for the wandb run.')
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
     parser.add_argument('--reload', action='store_true', help='Reload the dataset from YOLO format.')
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
-    parser.add_argument('fine_tune', type=bool, default=False, help='Fine tune the model.')
+    parser.add_argument('--fine_tune', type=bool, default=False, help='Fine tune the model.')
     return parser.parse_args()
 
 def main():
@@ -78,8 +78,11 @@ def main():
         base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
     elif args.model == "Florence":
         if args.fine_tune:
+            print("Fine tuning the model")
             model = Florence2Trainer("dataset")
-            model.train(dataset.location, epochs=2)
+            dataset_path = f"{os.getcwd()}/data/wood"
+            model.train(dataset_path=dataset_path, epochs=2)
+            print("Fine tuning done")
             base_model = Florence2(ontology=CaptionOntology(ont_list), model=model)
         base_model = Florence2(ontology=CaptionOntology(ont_list))
     elif args.model == "SAMHQ":
