@@ -26,9 +26,7 @@ def parse_arguments():
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
     return parser.parse_args()
 
-def main():
-    args = parse_arguments()
-
+def run_any_args(args):
     # Load configuration
     with open(args.config, 'r') as f:
         config = json.load(f)[args.section]
@@ -267,12 +265,16 @@ def main():
     #compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
     if len(dataset)<100:
-        compare_plot(dataset, gt_dataset)
+        #compare_plot(dataset, gt_dataset)
+        pass
 
 
 
     # Finish the wandb run
     wandb.finish()
 
+def main():
+    args = parse_arguments()
+    run_any_args(args)
 if __name__ == "__main__":
     main() 

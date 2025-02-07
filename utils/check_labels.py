@@ -138,7 +138,11 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             iou_threshold=0.5,
         )
         fig = confusion_matrix.plot(normalize=True)
-        confusion_matrix = confusion_matrix.matrix[:-1, :-1]  # Remove last row and column
+        #if there is more than one class
+        if len(dataset.classes) > 1:
+            confusion_matrix = confusion_matrix.matrix[:-1, :-1]  # Remove last row and column
+        else:
+            confusion_matrix = confusion_matrix.matrix
 
     acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
     acc = np.append(acc, confusion_matrix.diagonal().sum() / confusion_matrix.sum())
@@ -167,6 +171,7 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         except Exception as e:
             print(f"WandB logging error: {e}")
         plt.savefig(f"{results_dir}/mAP.png")
+    return confusion_matrix, acc, map_result
 
 def compare_plot(dataset, gt_dataset, results_dir="results"):
     # Ensure confidence is set for all annotations in both datasets
