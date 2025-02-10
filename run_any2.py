@@ -14,6 +14,7 @@ from autodistill_sam_hq.samhq_model import SAMHQ
 from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.metaclip_model import MetaCLIP
+from utils.wandb_utils import compare_plot as compare_wandb
 import wandb
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
@@ -24,6 +25,7 @@ def parse_arguments():
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
     parser.add_argument('--reload', action='store_true', help='Reload the dataset from YOLO format.')
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
+    parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
     return parser.parse_args()
 
 def run_any_args(args):
@@ -32,8 +34,9 @@ def run_any_args(args):
         config = json.load(f)[args.section]
 
     # Initialize wandb
-    wandb.login()
-    wandb.init(project="auto_new_wood_annotations", name=f"{args.model}_{args.tag}", tags=[args.tag])
+    if args.wandb:
+        wandb.login()
+        wandb.init(project="auto_new_wood_annotations", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
@@ -263,7 +266,8 @@ def run_any_args(args):
     print("GT Dataset size:", len(gt_dataset))
     compare_classes(gt_dataset, dataset)
     #compare_image_keys(gt_dataset, dataset)
-    evaluate_detections(dataset, gt_dataset)
+    #evaluate_detections(dataset, gt_dataset)
+    #compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
     if len(dataset)<100:
         #compare_plot(dataset, gt_dataset)
         pass
@@ -271,7 +275,8 @@ def run_any_args(args):
 
 
     # Finish the wandb run
-    wandb.finish()
+    if args.wandb:
+        wandb.finish()
 
 def main():
     args = parse_arguments()
