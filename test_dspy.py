@@ -16,6 +16,7 @@ import argparse
 import wandb
 from utils.wandb_utils import *
 import pandas as pd
+from dspy import LlamaCpp
 def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
     #python run_any2.py --section defects --model Florence --ontology
     # Create the arguments
@@ -75,7 +76,7 @@ def main():
     )
 
     llm = Llama(
-        model_path="./sppo_finetuned_llama_3_8b.gguf",
+        model_path="/work3/s184361/model/zephyr-7b-beta.Q4_0.gguf",
         n_gpu_layers=-1,
         n_ctx=0,
         verbose=False
@@ -83,7 +84,7 @@ def main():
     #lm = dspy.LM("ollama_chat/llama3.2:1b", api_base="http://localhost:11434")
     #lm = dspy.LM('anthropic/claude-3-opus-20240229')
     #dspy.configure(lm=lm)
-    llamalm = dspy.LlamaCpp(model="llama", llama_model=llm,  model_type="chat", temperature=0.4)
+    llamalm = LlamaCpp(model="llama", llama_model=llm,  model_type="chat", temperature=0.4)
     dspy.settings.configure(lm=llamalm)
     
 

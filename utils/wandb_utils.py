@@ -6,9 +6,13 @@ import wandb
 from autodistill.utils import plot
 import time
 import pandas as pd
-def compare_plot(dataset, gt_dataset, results_dir="results"):
-    wandb_image_tab = wandb.Table(columns=["Image_ID", "GT_Annotation", "Inference_Annotation"])
-    wandb.log({"Comparison Images": wandb_image_tab})
+def compare_plot(dataset, gt_dataset, results_dir="results",run=None):
+    if run == None:
+        run = wandb.run
+    wandb_image_tab = wandb.Table(columns=["image_id", "gt_annotation", "inference_annotation"],allow_mixed_types=True)
+    run.log({"comparison_images": wandb_image_tab})
+    wandb_plots_tab = wandb.Table(columns=["image_id", "gt_annotation", "inference_annotation"],allow_mixed_types=True)
+    run.log({"comparison_images": wandb_plots_tab})
     # Ensure confidence is set for all annotations in both datasets
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
@@ -29,7 +33,7 @@ def compare_plot(dataset, gt_dataset, results_dir="results"):
     start_time = time.time()
     gt_dict = {os.path.splitext(os.path.basename(image_path))[0] + ".jpg": (image_path, annotation) for image_path, _, annotation in gt_dataset}
     print(f"Time to make gt_dict: {time.time()-start_time}")
-    wandb.log({"Time to make gt_dict": time.time()-start_time})
+    run.log({"Time to make gt_dict": time.time()-start_time})
     # Process dataset images and ground truth images together
     for image_path, _, annotation in dataset:
         image = cv2.imread(image_path)
@@ -40,23 +44,25 @@ def compare_plot(dataset, gt_dataset, results_dir="results"):
         #log wandb image  
         wandb_images.append(wandb_img)
         #add to wandb table
-        wandb_image_tab.add_data(os.path.basename(image_path), wandb_img, None)
+        wandb_image_tab.add_data(os.path.basename(image_path), wandb_img, wandb_img)
+        run.log({"comparison_images": wandb_image_tab})
         try:
+            if result.confidence is None:
+                result.confidence = np.ones_like(result.class_id)
             img.append(plot(image=image, classes=classes, detections=result, raw=True))
-        except Exception as e:
-            print(f"Error plotting inference image: {e}")
+        except:
             img.append(plot(image=image, classes=[str(i) for i in range(100)], detections=result, raw=True))
         name.append(os.path.basename(image_path))
 
         name_gt = os.path.splitext(os.path.basename(image_path))[0] + ".jpg"
-        #wandb.log({f"inference_{name_gt}": wandb_img})
+        run.log({f"inference_{name_gt}": wandb_img})
         if name_gt in gt_dict:
             gt_image_path, gt_annotation = gt_dict[name_gt]
             gt_classes = gt_dataset.classes
             gt_image = cv2.imread(gt_image_path)
             gt_result = gt_annotation
             wandb_gt_img = detections_to_wandb(gt_image, gt_result, gt_classes)
-            #wandb.log({f"gt_{name_gt}": wandb_gt_img})
+            run.log({f"gt_{name_gt}": wandb_gt_img})
             wandb_gt_images.append(wandb_gt_img)
             if len(gt_result) == 0:
                 img_gt = gt_image
@@ -64,11 +70,13 @@ def compare_plot(dataset, gt_dataset, results_dir="results"):
                 try:
                     if gt_result.confidence is None:
                         gt_result.confidence = np.ones_like(gt_result.class_id)
-                    #img_gt = plot(image=gt_image, classes=gt_classes, detections=gt_result, raw=True)
+                    img_gt = plot(image=gt_image, classes=gt_classes, detections=gt_result, raw=True)
+
                 except Exception as e:
                     print(f"Error plotting ground truth image: {e}")
                     #img_gt = plot(image=gt_image, classes=[str(i) for i in range(100)], detections=gt_result, raw=True)
-
+            wandb_plots_tab.add_data(name_gt, img_gt, img[-1])
+            run.log({"plots": wandb_plots_tab})
             # Find fig index
             """
             index = name.index(name_gt)
@@ -89,21 +97,20 @@ def compare_plot(dataset, gt_dataset, results_dir="results"):
             plt.close(fig)
             """
         #wandb_image_tab.add_data(name, wandb_gt_images, wandb_images)
-        wandb_image_tab.add_data(name_gt, wandb_gt_img, wandb_img)
+        wandb_image_tab.add_data(name_gt, wandb_gt_img, wandb_gt_img)
 
-        #update_table_wandb("Comparison Images", [name_gt, wandb_gt_img, wandb_img])
-        wandb.log({"Comparison Images": wandb_image_tab})
-    """
-    try:
-        update_table_wandb("Comparison Images", [name_gt, wandb_gt_img, wandb_img])
-    except Exception as e:
-        print(f"Error updating table: {e}")
-    """
-    wandb.log({"Comparison Images": wandb_image_tab})
-    df = pd.DataFrame({"Image_ID": name, "GT_Annotation": wandb_gt_images, "Inference_Annotation": wandb_images})
-    wandb_tab2 = wandb.Table(dataframe=df, allow_mixed_types=True)
-    wandb.log({"Comparison Images2": wandb_tab2})
-    
+        run.log({"comparison_images": wandb_image_tab})
+    run.log({"comparison_images": wandb_image_tab})
+    df = pd.DataFrame({"image_id": name, "gt_annotation": wandb_gt_images, "inference_annotation": wandb_gt_images})
+    wandb_tab2 = wandb.Table(dataframe=df)
+    run.log({"comparison_images2": wandb_tab2})
+    return wandb_image_tab
+
+def log10times(lst):
+    for i in range(2):
+        time.sleep(0.1)
+        wandb.log(lst)
+
 def update_table_wandb(table_name, row, run_id = None):
     # Ensure the table_name is in the correct format 'collection:alias'
     if run_id == None:
@@ -157,4 +164,6 @@ def detections_to_wandb(img, detections, classes)->wandb.Image:
                     "confidence": float(conf)
                 }
             })
+        #convert image to PIL
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return wandb.Image(img, boxes=boxes)

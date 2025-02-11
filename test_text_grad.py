@@ -58,62 +58,23 @@ def test_longest_increasing_subsequence(fn):
 problem_text = """Input prompt for VLM classifier:
 
 Problem Statement:
-Given the description of the 
+Given the description of the the object you look for you need to find them in pictures, draw bouding boxes around them and label them. The objective is to maximize the accuracy of the model in identifying the objects.
 
 Input:
-The input consists of a list of integers representing the sequence.
+Prompt for the VLM classifier. Description of the object to look for in the images. It can be a single word or a phrase. Sometimes shorter prompts work better sometimes longer prompts work better. The prompt should be designed to maximize the accuracy of the model in identifying the objects.
 
 Output:
-The output should be an integer representing the length of the longest increasing subsequence."""
+The output should be the accuracy of the model in identifying the objects. The accuracy should be between 0 and 1. The higher the accuracy the better the model is at identifying the objects."""
 
 initial_solution = """
-def longest_increasing_subsequence(nums):
-    n = len(nums)
-    dp = [1] * n
-
-    for i in range(1, n):
-        for j in range(i):
-            if nums[i] > nums[j]:
-                dp[i] = max(dp[i], dp[j] + 1)
-
-    max_length = max(dp)
-    lis = []
-
-    for i in range(n - 1, -1, -1):
-        if dp[i] == max_length:
-            lis.append(nums[i])
-            max_length -= 1
-
-    return len(lis[::-1])
+defect anomaly scratch crack split knot dead knot in wood
 """
-
-# Generate a random test case
-def generate_random_test_case(size, min_value, max_value):
-    return [random.randint(min_value, max_value) for _ in range(size)]
 
 # Test the function with a random test case
 size = 10000  # Adjust the size as needed
 min_value = 1
 max_value = 1000
 
-nums = generate_random_test_case(size, min_value, max_value)
-
-longest_increasing_subsequence = run_function_in_interpreter(initial_solution)
-
-start_time = time.time()
-lis = longest_increasing_subsequence(nums)
-end_time = time.time()
-
-print(f"Test Case Size: {size}")
-print(f"Longest Increasing Subsequence Length: {lis}")
-print(f"Runtime: {end_time - start_time:.5f} seconds")
-
-# Test for all test cases
-test_longest_increasing_subsequence(longest_increasing_subsequence)
-
-"""## TextGrad to optimize code!
-Here, we will optimize the code instance. We first define the variables and instantiate the optimizer, then define our loss function, and finally update the code!
-"""
 os.environ["ANTHROPIC_API_KEY"] = (
     "os.getenv("ANTHROPIC_API_KEY", "")"
 )

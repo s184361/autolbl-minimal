@@ -19,7 +19,7 @@ import wandb
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
     parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
-    parser.add_argument('--section', type=str, default='defect', help='Section of the configuration to use.')
+    parser.add_argument('--section', type=str, default='defects', help='Section of the configuration to use.')
     parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP'], default='DINO', help='Model to use for autodistill.')
     parser.add_argument('--tag', type=str, default='default', help='Tag for the wandb run.')
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
@@ -66,6 +66,7 @@ def run_any_args(args):
         names = re.findall(r"name=([^\n]+)", content)
         names = sorted([name.lower().replace("_", " ") for name in names])
         ont_list = {name: name for name in names}
+        ont_list = {"defect": "defect"}
         print(ont_list)
         """
         ont_list =ont_list = {
@@ -267,7 +268,7 @@ def run_any_args(args):
     compare_classes(gt_dataset, dataset)
     #compare_image_keys(gt_dataset, dataset)
     #evaluate_detections(dataset, gt_dataset)
-    #compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+    compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
     if len(dataset)<100:
         #compare_plot(dataset, gt_dataset)
         pass
