@@ -368,3 +368,5 @@ croped_images3
 temp.jpeg
 model_checkpoints
 logs/
+OpenGroundingDino/
+aquarium_data/

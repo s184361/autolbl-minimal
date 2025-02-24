@@ -3,6 +3,9 @@ from textgrad.tasks import load_task
 import os
 import random
 import time
+from openai import OpenAI
+from textgrad.engine.local_model_openai_api import ChatExternalClient
+import textgrad as tg
 
 """### Utilities to run the code, and test cases"""
 
