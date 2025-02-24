@@ -138,5 +138,27 @@
             16
         ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
+    },
+    "local": {
+        "HOME": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl",
+        "IMAGE_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/images",
+        "ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/labels",
+        "IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/images",
+        "DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/data.yaml",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/BoundingBoxes",
+        "GT_IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/images",
+        "GT_DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/data.yaml",
+        "DATASET_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset",
+        "RESULTS_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/results",
+        "SAMPLE_SIZE": 6,
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
+        "PROMPT": "defects spots anomalies misscoloration irregularities"
     }
 }

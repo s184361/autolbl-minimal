@@ -2,27 +2,32 @@ import dspy
 import os
 from PIL import Image
 from io import BytesIO
-import requests
-import fal_client
-from dotenv import load_dotenv
-import subprocess
+
+# from dotenv import load_dotenv
+
 import json
 import supervision as sv
 from utils.check_labels import *
 from run_any2 import run_any_args
-from llama_cpp import Llama
 
 import argparse
 import wandb
 from utils.wandb_utils import *
 import pandas as pd
-from dspy import LlamaCpp
+import os
+import subprocess
+import torch
+import gc
+
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
 def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
     #python run_any2.py --section defects --model Florence --ontology
     # Create the arguments
+    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
     args = argparse.Namespace(
-        config='/zhome/4a/b/137804/Desktop/autolbl/config.json',
-        section='defects',
+        config=config_path,
+        section='local',
         model='DINO',
         tag='default',
         sahi=False,
@@ -67,30 +72,25 @@ def main():
     # Initialize wandb
     wandb.login()
     wandb.init(project="dspy")
-    load_dotenv()
+    # load_dotenv()
 
     # Optional
     os.environ["OPENAI_API_KEY"] = "your_openai_api_key"
     os.environ["ANTHROPIC_API_KEY"] = (
         "os.getenv("ANTHROPIC_API_KEY", "")"
     )
+    #process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
 
-    llm = Llama(
-        model_path="/work3/s184361/model/zephyr-7b-beta.Q4_0.gguf",
-        n_gpu_layers=-1,
-        n_ctx=0,
-        verbose=False
-    )
-    #lm = dspy.LM("ollama_chat/llama3.2:1b", api_base="http://localhost:11434")
-    #lm = dspy.LM('anthropic/claude-3-opus-20240229')
-    #dspy.configure(lm=lm)
-    llamalm = LlamaCpp(model="llama", llama_model=llm,  model_type="chat", temperature=0.4)
-    dspy.settings.configure(lm=llamalm)
-    
-
-    #autolbl
+    lm = dspy.LM("ollama/deepseek-r1:1.5b", api_base="http://localhost:11434", api_key="")
+    dspy.configure(lm=lm)
+    math = dspy.ChainOfThought("question -> answer: float")
+    print(math(question="Two dice are tossed. What is the probability that the sum equals two?"))
+    # autolbl
+    # Free GPU memory if possible
+    gc.collect()
+    torch.cuda.empty_cache()
     with open('config.json', 'r') as f:
-        config = json.load(f)["defects"]
+        config = json.load(f)["local"]
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
 
     check_and_revise_prompt = dspy.Predict(CheckAndRevisePrompt)
@@ -107,7 +107,10 @@ def main():
     for i in range(max_iter):
         print(f"Iteration {i+1} of {max_iter}")
         gt_class, TP, FP, FN, acc, F1  = label_images(config=config, gt_dataset=gt_dataset, prompt = current_prompt)
-        #log metrics
+        # Free GPU memory if possible
+        gc.collect()
+        torch.cuda.empty_cache()
+        # log metrics
         wandb.log(data={"iter": i, "TP": TP, "FP": FP, "FN": FN, "Accuracy": acc, "F1": F1})
         current_score = acc
         if current_score > best_score:
@@ -124,14 +127,14 @@ def main():
         print(f"Current score: {current_score}")
         if current_score != 1:
             current_prompt = result.revised_prompt
-            #remove , from prompt
+            # remove , from prompt
             current_prompt = current_prompt.replace(",", "").replace("-", "").replace(":", "").replace("\n", "")
             print(f"Feedback: {result.feedback}")
             print(f"Revised prompt: {result.revised_prompt}")
         else:
             print("Prompt is perfect")
             break
-        #update pandas dataframe
+        # update pandas dataframe
         df = pd.concat([df, pd.DataFrame([{"Iteration": i+1, "prompt": current_prompt, "feedback": result.feedback, "class": gt_class, "TP": TP, "FP": FP, "FN": FN, "Accuracy": acc, "F1": F1}])], ignore_index=True)
         try:
             update_table_wandb("Prompt Iterations", [i, current_prompt, result.feedback, gt_class, TP, FP, FN, acc, F1])
@@ -139,9 +142,11 @@ def main():
             wandb_prompt_table.add_data(i+1, current_prompt, result.feedback, gt_class, TP, FP, FN, acc, F1)
             print(f"Error updating wandb table: {e}")
         wandb.log({"Prompt Iterations": wandb_prompt_table})
-        #log to pandas dataframe
+        # log to pandas dataframe
         wandb_tab2 = wandb.Table(dataframe=df, allow_mixed_types=True)
         wandb.log({"Prompt Iterations2": wandb_tab2})
+        gc.collect()
+        torch.cuda.empty_cache()
 
     print(f"Final prompt: {current_prompt}")
     wandb.finish()

@@ -69,3 +69,4 @@ ultralytics==8.0.81
 urllib3==2.2.3
 wcwidth==0.2.13
 yapf==0.43.0
+textgrad

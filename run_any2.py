@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 from autodistill_grounding_dino import GroundingDINO
-from autodistill_florence_2 import Florence2
-from autodistill_sam_hq.samhq_model import SAMHQ
+#from autodistill_florence_2 import Florence2
+#from autodistill_sam_hq.samhq_model import SAMHQ
 from utils.composed_detection_model import ComposedDetectionModel2
 from utils.embedding_ontology import EmbeddingOntologyImage
-from utils.metaclip_model import MetaCLIP
+#from utils.metaclip_model import MetaCLIP
 from utils.wandb_utils import compare_plot as compare_wandb
 import wandb
 def parse_arguments():
@@ -52,11 +52,11 @@ def run_any_args(args):
     )
     print('Image count:', len(image_paths))
 
-    titles = [os.path.splitext(os.path.basename(image_path))[0] for image_path in image_paths[:config['SAMPLE_SIZE']]]
-    images = [cv2.imread(image_path) for image_path in image_paths[:config['SAMPLE_SIZE']]]
-    plt.ion()
-    sv.plot_images_grid(images=images, titles=titles, grid_size=config['SAMPLE_GRID_SIZE'], size=config['SAMPLE_PLOT_SIZE'])
-    plt.savefig(os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_images_grid.png"))
+    #titles = [os.path.splitext(os.path.basename(image_path))[0] for image_path in image_paths[:config['SAMPLE_SIZE']]]
+    #images = [cv2.imread(image_path) for image_path in image_paths[:config['SAMPLE_SIZE']]]
+    #plt.ion()
+    #sv.plot_images_grid(images=images, titles=titles, grid_size=config['SAMPLE_GRID_SIZE'], size=config['SAMPLE_PLOT_SIZE'])
+    #plt.savefig(os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_images_grid.png"))
 
     if args.ontology in ["", None]:
         # Define ontology
@@ -258,7 +258,7 @@ def run_any_args(args):
     except:
         pass
     # Plot annotated images
-    plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
+    #plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
 
     # Evaluate the dataset
     #update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
@@ -268,7 +268,7 @@ def run_any_args(args):
     compare_classes(gt_dataset, dataset)
     #compare_image_keys(gt_dataset, dataset)
     #evaluate_detections(dataset, gt_dataset)
-    compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+    #compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
     if len(dataset)<100:
         #compare_plot(dataset, gt_dataset)
         pass
