@@ -22,8 +22,7 @@ def main():
             annotations_directory_path=config['ANNOTATIONS_DIRECTORY_PATH'],
             data_yaml_path=config['DATA_YAML_PATH']
         )
-    wandb_tab = compare_plot(dataset, gt_dataset, run)
-    run.log({"comparison_images": wandb_tab})
+    compare_plot(dataset, gt_dataset, run)
     run.finish()
 
 if __name__ == "__main__":

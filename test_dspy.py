@@ -16,14 +16,15 @@ import argparse
 import wandb
 from utils.wandb_utils import *
 import pandas as pd
-from dspy import LlamaCpp
+from dspy.clients.lm_local import LocalProvider
+
 def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
     #python run_any2.py --section defects --model Florence --ontology
     # Create the arguments
     args = argparse.Namespace(
         config='/zhome/4a/b/137804/Desktop/autolbl/config.json',
         section='defects',
-        model='DINO',
+        model='Florence',
         tag='default',
         sahi=False,
         reload=False,
@@ -38,7 +39,7 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
         )
     
     confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
-    #compare_plot(dataset, gt_dataset)
+    #ompare_plot(dataset, gt_dataset)
     #extract true positives
     print(f"Accuracy: {acc}")
     # return "class", "TP", "FP", "FN", "Accuracy", "F1"
@@ -66,27 +67,24 @@ def main():
 
     # Initialize wandb
     wandb.login()
-    wandb.init(project="dspy")
+    run = wandb.init(project="dspy")
     load_dotenv()
 
     # Optional
     os.environ["OPENAI_API_KEY"] = "your_openai_api_key"
     os.environ["ANTHROPIC_API_KEY"] = (
-        "os.getenv("ANTHROPIC_API_KEY", "")"
+       "os.getenv("ANTHROPIC_API_KEY", "")"
     )
 
-    llm = Llama(
-        model_path="/work3/s184361/model/zephyr-7b-beta.Q4_0.gguf",
-        n_gpu_layers=-1,
-        n_ctx=0,
-        verbose=False
-    )
+    #llm = Llama(model_path="/work3/s184361/model/zephyr-7b-beta.Q4_0.gguf",n_gpu_layers=-1,n_ctx=0,verbose=False)
     #lm = dspy.LM("ollama_chat/llama3.2:1b", api_base="http://localhost:11434")
     #lm = dspy.LM('anthropic/claude-3-opus-20240229')
-    #dspy.configure(lm=lm)
-    llamalm = LlamaCpp(model="llama", llama_model=llm,  model_type="chat", temperature=0.4)
-    dspy.settings.configure(lm=llamalm)
-    
+    #llamalm = LlamaCpp(model="llama", llama_model=llm,  model_type="chat", temperature=0.4)
+    #dspy.settings.configure(lm=llamalm)
+
+    student_lm_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    lm = dspy.LM(model=f"openai/local:{student_lm_name}", provider=LocalProvider(), max_tokens=2000)
+    dspy.configure(lm=lm)
 
     #autolbl
     with open('config.json', 'r') as f:
@@ -95,14 +93,22 @@ def main():
 
     check_and_revise_prompt = dspy.Predict(CheckAndRevisePrompt)
 
-    initial_prompt = "defect anomaly scratch crack split knot dead knot in wood"
+    initial_prompt = "wood defect"
     current_prompt = initial_prompt
     best_prompt = initial_prompt
     best_score = 0
-    max_iter = 5
-
-    wandb_prompt_table = wandb.Table(columns=["Iteration", "prompt","feedback", "class", "TP", "FP", "FN", "Accuracy", "F1"])
-    wandb.log({"Prompt Iterations": wandb_prompt_table})
+    max_iter = 7
+    current_score = 0
+    result = check_and_revise_prompt(
+        desired_score=1.0,
+        current_score=current_score,
+        current_prompt=current_prompt,
+        context = "You are designing a prompt to help a vison model identify defects in wood images",
+        best_prompt=best_prompt,
+        best_score=best_score
+    )
+    #wandb_prompt_table = wandb.Table(columns=["Iteration", "prompt","feedback", "class", "TP", "FP", "FN", "Accuracy", "F1"])
+    #wandb.log({"Prompt Iterations": wandb_prompt_table})
     df = pd.DataFrame(columns=["Iteration", "prompt","feedback", "class", "TP", "FP", "FN", "Accuracy", "F1"])
     for i in range(max_iter):
         print(f"Iteration {i+1} of {max_iter}")
@@ -133,17 +139,13 @@ def main():
             break
         #update pandas dataframe
         df = pd.concat([df, pd.DataFrame([{"Iteration": i+1, "prompt": current_prompt, "feedback": result.feedback, "class": gt_class, "TP": TP, "FP": FP, "FN": FN, "Accuracy": acc, "F1": F1}])], ignore_index=True)
-        try:
-            update_table_wandb("Prompt Iterations", [i, current_prompt, result.feedback, gt_class, TP, FP, FN, acc, F1])
-        except Exception as e:
-            wandb_prompt_table.add_data(i+1, current_prompt, result.feedback, gt_class, TP, FP, FN, acc, F1)
-            print(f"Error updating wandb table: {e}")
-        wandb.log({"Prompt Iterations": wandb_prompt_table})
+
+        run.log({"prompt_iter": wandb.Table(dataframe=df)})
         #log to pandas dataframe
-        wandb_tab2 = wandb.Table(dataframe=df, allow_mixed_types=True)
-        wandb.log({"Prompt Iterations2": wandb_tab2})
+    wandb_tab2 = wandb.Table(dataframe=df)
+    run.log({"prompt_iter2": wandb_tab2})
 
     print(f"Final prompt: {current_prompt}")
-    wandb.finish()
+    run.finish()
 if __name__ == "__main__":
     main()

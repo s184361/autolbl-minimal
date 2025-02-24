@@ -26,6 +26,7 @@ def parse_arguments():
     parser.add_argument('--reload', action='store_true', help='Reload the dataset from YOLO format.')
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
     parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
+    parser.add_argument('--save_images', type=bool, default=True, help='Save images for destillation')
     return parser.parse_args()
 
 def run_any_args(args):
@@ -39,7 +40,10 @@ def run_any_args(args):
         wandb.init(project="auto_new_wood_annotations", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
-    reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
+    try:
+        reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
+    except:
+        print("No folders to delete")
 
     # Check if GPU is available
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -233,7 +237,8 @@ def run_any_args(args):
         input_folder=config['IMAGE_DIR_PATH'],
         extension=".jpg",
         output_folder=config['DATASET_DIR_PATH'],
-        sahi=args.sahi
+        sahi=args.sahi,
+        save_images=args.save_images
     )
     #check if the dataset is empty
     if len(dataset) == 0:
@@ -242,7 +247,8 @@ def run_any_args(args):
             input_folder=config['IMAGE_DIR_PATH'],
             extension=".png",
             output_folder=config['DATASET_DIR_PATH'],
-            sahi=args.sahi
+            sahi=args.sahi,
+            save_images=args.save_images
         )
     if args.reload:
         dataset = sv.DetectionDataset.from_yolo(
@@ -258,17 +264,17 @@ def run_any_args(args):
     except:
         pass
     # Plot annotated images
-    plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
+    #plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
 
     # Evaluate the dataset
     #update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     print(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    print("GT Dataset size:", len(gt_dataset))
-    compare_classes(gt_dataset, dataset)
+    #gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    #print("GT Dataset size:", len(gt_dataset))
+    #compare_classes(gt_dataset, dataset)
     #compare_image_keys(gt_dataset, dataset)
     #evaluate_detections(dataset, gt_dataset)
-    compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+    #compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
     if len(dataset)<100:
         #compare_plot(dataset, gt_dataset)
         pass
@@ -278,6 +284,7 @@ def run_any_args(args):
     # Finish the wandb run
     if args.wandb:
         wandb.finish()
+    return dataset
 
 def main():
     args = parse_arguments()

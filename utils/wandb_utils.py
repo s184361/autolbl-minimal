@@ -6,13 +6,12 @@ import wandb
 from autodistill.utils import plot
 import time
 import pandas as pd
+
 def compare_plot(dataset, gt_dataset, results_dir="results",run=None):
     if run == None:
         run = wandb.run
-    wandb_image_tab = wandb.Table(columns=["image_id", "gt_annotation", "inference_annotation"],allow_mixed_types=True)
-    run.log({"comparison_images": wandb_image_tab})
-    wandb_plots_tab = wandb.Table(columns=["image_id", "gt_annotation", "inference_annotation"],allow_mixed_types=True)
-    run.log({"comparison_images": wandb_plots_tab})
+
+    df_images = pd.DataFrame(columns=["image_id", "gt_annotation", "inference_annotation"])
     # Ensure confidence is set for all annotations in both datasets
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
@@ -41,11 +40,8 @@ def compare_plot(dataset, gt_dataset, results_dir="results",run=None):
         result = annotation
 
         wandb_img = detections_to_wandb(image, result, classes)
-        #log wandb image  
         wandb_images.append(wandb_img)
-        #add to wandb table
-        wandb_image_tab.add_data(os.path.basename(image_path), wandb_img, wandb_img)
-        run.log({"comparison_images": wandb_image_tab})
+
         try:
             if result.confidence is None:
                 result.confidence = np.ones_like(result.class_id)
@@ -55,15 +51,15 @@ def compare_plot(dataset, gt_dataset, results_dir="results",run=None):
         name.append(os.path.basename(image_path))
 
         name_gt = os.path.splitext(os.path.basename(image_path))[0] + ".jpg"
-        run.log({f"inference_{name_gt}": wandb_img})
+
         if name_gt in gt_dict:
             gt_image_path, gt_annotation = gt_dict[name_gt]
             gt_classes = gt_dataset.classes
             gt_image = cv2.imread(gt_image_path)
             gt_result = gt_annotation
             wandb_gt_img = detections_to_wandb(gt_image, gt_result, gt_classes)
-            run.log({f"gt_{name_gt}": wandb_gt_img})
             wandb_gt_images.append(wandb_gt_img)
+
             if len(gt_result) == 0:
                 img_gt = gt_image
             else:
@@ -74,42 +70,16 @@ def compare_plot(dataset, gt_dataset, results_dir="results",run=None):
 
                 except Exception as e:
                     print(f"Error plotting ground truth image: {e}")
-                    #img_gt = plot(image=gt_image, classes=[str(i) for i in range(100)], detections=gt_result, raw=True)
-            wandb_plots_tab.add_data(name_gt, img_gt, img[-1])
-            run.log({"plots": wandb_plots_tab})
-            # Find fig index
-            """
-            index = name.index(name_gt)
-            fig, axes = plt.subplots(1, 2, figsize=(12, 6), tight_layout=True)
-            axes[0].imshow(img[index])
-            axes[0].set_title("Inference")
-            axes[0].axis("off")
-            axes[1].imshow(img_gt)
-            axes[1].set_title("Ground Truth")
-            axes[1].axis("off")
-            fig.patch.set_facecolor('none')
-
-            try:
-                wandb.log({f"Annotated Image {name_gt}": wandb.Image(fig)})
-            except Exception as e:
-                print(f"WandB logging error: {e}")
-            plt.savefig(os.path.join(results_dir, name_gt), dpi=1200)
-            plt.close(fig)
-            """
-        #wandb_image_tab.add_data(name, wandb_gt_images, wandb_images)
-        wandb_image_tab.add_data(name_gt, wandb_gt_img, wandb_gt_img)
-
-        run.log({"comparison_images": wandb_image_tab})
-    run.log({"comparison_images": wandb_image_tab})
+                    img_gt = plot(image=gt_image, classes=[str(i) for i in range(100)], detections=gt_result, raw=True)
+        df_images = pd.concat([df_images, pd.DataFrame([{"image_id": name_gt,
+                                    "gt_annotation": wandb_gt_img,
+                                    "inference_annotation": wandb_img}])], ignore_index=True)
+        run.log({"for_loop_images": wandb.Table(dataframe=df_images)})
+    
     df = pd.DataFrame({"image_id": name, "gt_annotation": wandb_gt_images, "inference_annotation": wandb_gt_images})
     wandb_tab2 = wandb.Table(dataframe=df)
     run.log({"comparison_images2": wandb_tab2})
-    return wandb_image_tab
-
-def log10times(lst):
-    for i in range(2):
-        time.sleep(0.1)
-        wandb.log(lst)
+    return df
 
 def update_table_wandb(table_name, row, run_id = None):
     # Ensure the table_name is in the correct format 'collection:alias'
