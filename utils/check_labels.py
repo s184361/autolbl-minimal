@@ -137,7 +137,7 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             classes=dataset.classes,
             iou_threshold=0.5,
         )
-        fig = confusion_matrix.plot(normalize=True)
+        #fig = confusion_matrix.plot(normalize=True)
         #if there is more than one class
         if len(dataset.classes) > 1:
             confusion_matrix = confusion_matrix.matrix[:-1, :-1]  # Remove last row and column
@@ -155,7 +155,7 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     except Exception as e:
         print(f"WandB logging error: {e}")
 
-    plt.savefig(f"{results_dir}/confusion_matrix.png")
+    #plt.savefig(f"{results_dir}/confusion_matrix.png")
     print(confusion_matrix)
 
     # Compute mAP if both datasets are DetectionDataset
@@ -164,13 +164,13 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         map_result = map_metric.update(predictions, targets).compute()
         print(map_result)
 
-        map_result.plot()
-        fig = plt.gcf()  # grab last figure
+        #map_result.plot()
+        #fig = plt.gcf()  # grab last figure
         try:
             wandb.log({"mAP": wandb.Image(fig)})
         except Exception as e:
             print(f"WandB logging error: {e}")
-        plt.savefig(f"{results_dir}/mAP.png")
+        #plt.savefig(f"{results_dir}/mAP.png")
     return confusion_matrix, acc, map_result
 
 def compare_plot(dataset, gt_dataset, results_dir="results"):

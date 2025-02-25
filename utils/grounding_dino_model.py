@@ -9,7 +9,8 @@ import torch
 torch.use_deterministic_algorithms(False)
 
 import supervision as sv
-from autodistill.detection import CaptionOntology, DetectionBaseModel
+from autodistill.detection import CaptionOntology#, DetectionBaseModel
+from utils.detection_base_model import DetectionBaseModel
 from autodistill.helpers import load_image
 from groundingdino.util.inference import Model
 

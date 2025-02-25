@@ -70,6 +70,7 @@ class DetectionBaseModel(BaseModel):
         sahi: bool = False,
         record_confidence: bool = False,
         nms_settings: NmsSetting = NmsSetting.NONE,
+        save_images=True
     ) -> sv.DetectionDataset:
         """
         Label a dataset with the model.
@@ -123,7 +124,8 @@ class DetectionBaseModel(BaseModel):
             self._record_confidence_in_files(
                 output_folder + "/annotations", image_names, detections_map
             )
-        split_data(output_folder, record_confidence=record_confidence)
+        if save_images:
+            split_data(output_folder, record_confidence=record_confidence)
 
         if human_in_the_loop:
             roboflow.login()
