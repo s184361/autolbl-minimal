@@ -18,26 +18,29 @@ class PromptOptimizer:
         wandb.login()
         self.run = wandb.init(project="backprop")
         self.pd_prompt_table = pd.DataFrame()
-
+        self.ds_name = "bottle"
         with open(config_path, 'r') as f:
-            self.config = json.load(f)["defects"]
+            self.config = json.load(f)[self.ds_name]
         # Load ground truth dataset (assumes load_dataset is available via utils.check_labels)
         self.gt_dataset = load_dataset(
             self.config['GT_IMAGES_DIRECTORY_PATH'],
             self.config['GT_ANNOTATIONS_DIRECTORY_PATH'],
             self.config['GT_DATA_YAML_PATH']
-        )
+        ) 
         self.gt_dataset = self.set_one_class(self.gt_dataset)
-        self.gt_dict = None
+        self.gt_dict = {
+                os.path.splitext(os.path.basename(image_path))[0] + ".jpg": (image_path, annotation)
+                for image_path, _, annotation in self.gt_dataset
+            }
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         # Initialize prompt tensor from a default prompt.
-        input_ids = self.tokenizer("[PAD] [PAD] [PAD] [PAD] defect [PAD] [PAD] [PAD]")['input_ids']
+        input_ids = self.tokenizer("[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]")['input_ids']
         self.input_ids = torch.tensor(input_ids, dtype=torch.float32)
         #remove exclude fist and last token
         self.input_ids = self.input_ids[1:-1]
         #set a random entry to a random integer within the tokenizer's vocabulary
         for i in range(random.randint(1, len(self.input_ids))):
-            self.input_ids[random.randint(0, len(self.input_ids))] = random.randint(0, len(self.tokenizer))
+            self.input_ids[random.randint(0, len(self.input_ids)-1)] = random.randint(0, len(self.tokenizer))
         #set the middle entry to the token for "defect" with value 21262
         self.input_ids[len(self.input_ids) // 2] = 21262
         print("Initial prompt:", self.decode_prompt(self.tokenizer, self.input_ids), self.input_ids)
@@ -60,7 +63,7 @@ class PromptOptimizer:
     def step(self, prompt: str, eval_metrics: bool = False):
         args = argparse.Namespace(
             config='/zhome/4a/b/137804/Desktop/autolbl/config.json',
-            section='defects',
+            section=self.ds_name,
             model='DINO',
             tag='default',
             sahi=False,
@@ -172,7 +175,7 @@ class PromptOptimizer:
         # Create an initial guess from the prompt tensor.
         x0 = self.input_ids.detach().numpy().flatten()
         bounds = [(0, len(self.tokenizer))] * len(x0)
-        result = minimize(self.objective, x0, jac=False, options={'maxiter': 100},method="COBYLA")#, bounds=bounds)
+        result = minimize(self.objective, x0, jac=False, options={'maxiter': 100},method="COBYLA", bounds=bounds)
         optimized_x = result.x
         optimized_tensor = torch.tensor(optimized_x, dtype=torch.float32)
         optimized_prompt = self.decode_prompt(self.tokenizer, optimized_tensor)

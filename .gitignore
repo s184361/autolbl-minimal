@@ -370,3 +370,4 @@ model_checkpoints
 logs/
 OpenGroundingDino/
 aquarium_data/
+input_params/
