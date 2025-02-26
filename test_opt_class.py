@@ -28,6 +28,7 @@ class PromptOptimizer:
             self.config['GT_DATA_YAML_PATH']
         ) 
         self.gt_dataset = self.set_one_class(self.gt_dataset)
+        self.check_classes(self.gt_dataset)
         self.gt_dict = {
                 os.path.splitext(os.path.basename(image_path))[0] + ".jpg": (image_path, annotation)
                 for image_path, _, annotation in self.gt_dataset
@@ -48,11 +49,19 @@ class PromptOptimizer:
     @staticmethod
     def set_one_class(gt_dataset):
         for key in gt_dataset.annotations.keys():
-            for i in range(len(gt_dataset.annotations[key])):
-                gt_dataset.annotations[key][i].class_id = np.zeros_like(gt_dataset.annotations[key][i].class_id)
+            new_annotation = gt_dataset.annotations[key]
+            new_annotation.class_id = np.zeros_like(new_annotation.class_id)
+            gt_dataset.annotations[key] = new_annotation
         gt_dataset.classes = ['defect']
         return gt_dataset
 
+    @staticmethod
+    def check_classes(gt_dataset):
+        for key in gt_dataset.annotations.keys():
+            for i in range(len(gt_dataset.annotations[key])):
+                if gt_dataset.annotations[key][i].class_id != len(gt_dataset.classes) - 1:
+                    return False
+        return True
     @staticmethod
     def decode_prompt(tokenizer, input_ids):
         rounded_prompt = torch.round(input_ids)
