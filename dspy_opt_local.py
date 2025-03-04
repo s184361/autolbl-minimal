@@ -92,7 +92,7 @@ def main():
         )
     )
     # disconnect from the server
-    process.kill()
+    # process.kill()
     # autolbl
     # Free GPU memory if possible
     gc.collect()
@@ -107,11 +107,11 @@ def main():
 
     check_and_revise_prompt = dspy.Predict(CheckAndRevisePrompt)
 
-    initial_prompt = "wood defect"
+    initial_prompt = "defect"
     current_prompt = initial_prompt
     best_prompt = initial_prompt
-    best_score = 0
-    max_iter = 7
+    best_score = 0.03425
+    max_iter = 20
     current_score = 0
     result = check_and_revise_prompt(
         desired_score=1.0,
@@ -148,17 +148,17 @@ def main():
         wandb.log(
             data={"iter": i, "TP": TP, "FP": FP, "FN": FN, "Accuracy": acc, "F1": F1}
         )
-        current_score = acc
+        current_score = F1
         if current_score > best_score:
             best_prompt = current_prompt
             best_score = current_score
-        process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
-        dspy.configure(lm=lm)
+        # process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
+        # dspy.configure(lm=lm)
         result = check_and_revise_prompt(
             desired_score=1.0,
             current_score=current_score,
             current_prompt=current_prompt,
-            context="You are designing a prompt to help a vison model identify defects in wood images",
+            context="You are designing a prompt to help a vison model identify defects in wood images. Provide pompt with description of the wood defect, keywords or terminology for wood defects. Do not make your prompts too long. Giving commands to the vision model seems to be ineffective so do not use words like [find] or [detect] in your prompt. Remember you are trying to get current score as close to 1.0 as possible, so if you stop improving try to add novely to your prompt. Remember to keep the prompt short, up to 10 words. Mentioning that the prompt is detailed does not make detections better.",
             best_prompt=best_prompt,
             best_score=best_score,
         )

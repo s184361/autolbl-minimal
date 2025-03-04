@@ -146,6 +146,8 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
 
     acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
     acc = np.append(acc, confusion_matrix.diagonal().sum() / confusion_matrix.sum())
+    #if nan values are present and the corresponding diagonal value is 0, set accuracy to 0
+    #acc[np.isnan(acc)] = 0
     print("acc", acc)
 
     try:
