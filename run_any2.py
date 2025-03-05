@@ -10,12 +10,15 @@ from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 #from autodistill_grounding_dino import GroundingDINO
 from utils.grounding_dino_model import GroundingDINO
-#from autodistill_florence_2 import Florence2
-#from autodistill_sam_hq.samhq_model import SAMHQ
+try:
+    from autodistill_florence_2 import Florence2
+    from autodistill_sam_hq.samhq_model import SAMHQ
+    from utils.metaclip_model import MetaCLIP
+except:
+    pass
 from utils.composed_detection_model import ComposedDetectionModel2
 from utils.detection_base_model import DetectionBaseModel
 from utils.embedding_ontology import EmbeddingOntologyImage
-#from utils.metaclip_model import MetaCLIP
 from utils.wandb_utils import compare_plot as compare_wandb
 import wandb
 def parse_arguments():

@@ -51,19 +51,18 @@ class PromptOptimizer:
                 os.path.splitext(os.path.basename(image_path))[0] + ".jpg": (image_path, annotation)
                 for image_path, _, annotation in self.gt_dataset
             }
-        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        # Initialize prompt tensor from a default prompt.
-        input_ids = self.tokenizer(self.initial_prompt)['input_ids']
-        self.input_ids = torch.tensor(input_ids, dtype=torch.float32)
-        #remove exclude fist and last token
-        self.input_ids = self.input_ids[1:-1]
+        # Remove tokenizer initialization
+        # self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        # Initialize with ASCII encoding instead
+        self.initial_prompt = "defect"
+        self.input_ids = self.encode_prompt(self.initial_prompt)
+        # If randomizing, modify ASCII values directly
         if self.randomize:
-            #set a random entry to a random integer within the tokenizer's vocabulary
+            # Randomize some characters (using ASCII values of printable chars)
             for i in range(random.randint(1, len(self.input_ids))):
-                self.input_ids[random.randint(0, len(self.input_ids)-1)] = random.randint(0, len(self.tokenizer))
-            #set the middle entry to the token for "defect" with value 21262
-            self.input_ids[len(self.input_ids) // 2] = 21262
-        print("Initial prompt:", self.decode_prompt(self.tokenizer, self.input_ids), self.input_ids)
+                self.input_ids[random.randint(0, len(self.input_ids)-1)] = random.randint(32, 126)
+        
+        print("Initial prompt:", self.decode_prompt(self.input_ids), self.input_ids)
 
     @staticmethod
     def set_one_class(gt_dataset):
@@ -79,12 +78,19 @@ class PromptOptimizer:
                 if gt_dataset.annotations[key][i].class_id != len(gt_dataset.classes) - 1:
                     return False
         return True
+
     @staticmethod
-    def decode_prompt(tokenizer, input_ids):
-        rounded_prompt = torch.round(input_ids)
-        rounded_prompt = torch.clamp(rounded_prompt, 0, len(tokenizer)).to(torch.int64)
-        prompt = tokenizer.decode(rounded_prompt, skip_special_tokens=True)
-        return prompt
+    def encode_prompt(text):
+        """Convert a string to its ASCII value representation"""
+        return torch.tensor([ord(c) for c in text], dtype=torch.float32)
+
+    @staticmethod
+    def decode_prompt(ascii_values, _=None):
+        """Convert ASCII values back to a string, ignoring the tokenizer parameter"""
+        # Round and clip to valid ASCII range (32-126 for printable chars)
+        rounded = torch.round(ascii_values).clamp(32, 126).to(torch.int64)
+        # Convert ASCII values back to characters
+        return ''.join([chr(int(code)) for code in rounded])
 
     def step(self, prompt: str, eval_metrics: bool = False):
         args = argparse.Namespace(
@@ -152,9 +158,9 @@ class PromptOptimizer:
         if len(gt_groups) == 0:
             gt_groups = [len(gt_labels)]
         pred_labels = F.one_hot(pred_labels.long()).float()
-        gt_labels = gt_labels.to(torch.int64)
+        gt_labels = gt_labels.to(torch.int32)
         num_classes = len(self.gt_dataset.classes) + 1
-    
+        loss_fn = DETRLoss(nc=num_classes, aux_loss=False, use_fl=False, use_vfl=False)
         batch = {
             'cls': gt_labels,
             'bboxes': gt_bboxes.to(torch.float32),
@@ -162,7 +168,9 @@ class PromptOptimizer:
         }
         pred_bboxes = pred_bboxes.unsqueeze(0).unsqueeze(0).to(torch.float32)
         pred_scores = pred_scores.unsqueeze(0).unsqueeze(0).to(torch.float32)
-        loss_fn = DETRLoss(nc=num_classes, aux_loss=False, use_fl=False, use_vfl=False)
+        print("pred_bboxes:", pred_bboxes)
+        print("pred_scores:", pred_scores)
+        print("batch:", batch)
         loss_output = loss_fn.forward(
             pred_bboxes=pred_bboxes,
             pred_scores=pred_scores,
@@ -200,13 +208,14 @@ class PromptOptimizer:
         return loss
 
     def optimize(self):
-        # Create an initial guess from the prompt tensor.
+        # Create an initial guess from the prompt tensor
         x0 = self.input_ids.detach().numpy().flatten()
-        bounds = [(0, len(self.tokenizer))] * len(x0)
-        result = minimize(self.objective, x0, jac=False, options={'maxiter': 100},method="COBYLA", bounds=bounds)
+        # Set bounds to printable ASCII range (32-126)
+        bounds = [(32, 126)] * len(x0)
+        result = minimize(self.objective, x0, jac=False, options={'maxiter': 100}, method="COBYLA", bounds=bounds)
         optimized_x = result.x
         optimized_tensor = torch.tensor(optimized_x, dtype=torch.float32)
-        optimized_prompt = self.decode_prompt(self.tokenizer, optimized_tensor)
+        optimized_prompt = self.decode_prompt(optimized_tensor)
         print("Optimized prompt:", optimized_prompt)
         wandb.log({
             "optimized_prompt": optimized_prompt,
