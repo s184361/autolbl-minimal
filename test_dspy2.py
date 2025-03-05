@@ -17,6 +17,7 @@ from run_any2 import run_any_args
 from utils.wandb_utils import *
 from dspy.teleprompt import MIPROv2
 from dspy.evaluate import Evaluate
+import random
 
 # Set CUDA memory allocation configuration
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -99,7 +100,7 @@ def metric_function(example, pred):
     # Free memory after running detection
     gc.collect()
     torch.cuda.empty_cache()
-    
+    print(f"F1: {F1}")
     return F1
 
 def main():
@@ -118,14 +119,45 @@ def main():
     dspy_examples = []
     customer_message = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
 
-    for i in range(len(prompt_examples)):
-        dspy_examples.append(dspy.Example(
-            customer_message=customer_message,
-            intent_labels=prompt_examples["prompt"][i],
-            answer=prompt_examples["F1"][i]
-        ).with_inputs("customer_message", "intent_labels"))
-    # Define training and development sets by randomly splitting the examples
-    trainset, devset = dspy_examples[:int(len(dspy_examples) * 0.8)], dspy_examples[int(len(dspy_examples) * 0.8):]
+    # Define function to get examples with balanced classes
+    def get_dspy_examples(df, k):
+        dspy_examples = []
+        # Group by F1 score rounded to 1 decimal to create "classes"
+        df['F1_class'] = df['F1'].round(1)
+        classes = df['F1_class'].unique()
+        
+        for f1_class in classes:
+            try:
+                class_df = df[df['F1_class'] == f1_class].sample(n=k, replace=True)
+                for _, row in class_df.iterrows():
+                    dspy_examples.append(
+                        dspy.Example(
+                            customer_message=customer_message,
+                            intent_labels=row["prompt"],
+                            answer=row["F1"]
+                        ).with_inputs("customer_message", "intent_labels")
+                    )
+            except:
+                # If there aren't enough samples in a class, use what's available
+                class_df = df[df['F1_class'] == f1_class]
+                for _, row in class_df.iterrows():
+                    dspy_examples.append(
+                        dspy.Example(
+                            customer_message=customer_message,
+                            intent_labels=row["prompt"],
+                            answer=row["F1"]
+                        ).with_inputs("customer_message", "intent_labels")
+                    )
+        
+        return dspy_examples
+    
+    # Create balanced train and dev sets
+    trainset = get_dspy_examples(prompt_examples, k=10)
+    devset = get_dspy_examples(prompt_examples, k=3)
+    
+    # Ensure no overlap between train and dev sets
+    dev_prompts = set([ex.intent_labels for ex in devset])
+    trainset = [ex for ex in trainset if ex.intent_labels not in dev_prompts]
     #remove dspy_examples from memory
     del dspy_examples, prompt_examples
     gc.collect()
@@ -155,14 +187,15 @@ def main():
     teleprompter = MIPROv2(
         metric=metric_function,
         auto="light",
-    )
+        max_bootstrapped_demos=0,
+                )
 
     # Compile optimized program
     optimized_program = teleprompter.compile(
         program.deepcopy(),
         trainset=trainset,
         max_bootstrapped_demos=0,
-        max_labeled_demos=0,
+        max_labeled_demos=2,
         requires_permission_to_run=False,
         minibatch=False
     )

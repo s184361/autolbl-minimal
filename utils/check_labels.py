@@ -148,7 +148,7 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     acc = np.append(acc, confusion_matrix.diagonal().sum() / confusion_matrix.sum())
     #if nan values are present and the corresponding diagonal value is 0, set accuracy to 0
     #acc[np.isnan(acc)] = 0
-    print("acc", acc)
+    #print("acc", acc)
 
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
@@ -158,13 +158,13 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         print(f"WandB logging error: {e}")
 
     #plt.savefig(f"{results_dir}/confusion_matrix.png")
-    print(confusion_matrix)
+    #print(confusion_matrix)
 
     # Compute mAP if both datasets are DetectionDataset
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
         map_metric = sv.metrics.MeanAveragePrecision()
         map_result = map_metric.update(predictions, targets).compute()
-        print(map_result)
+        #print(map_result)
 
         #map_result.plot()
         #fig = plt.gcf()  # grab last figure
