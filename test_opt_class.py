@@ -19,8 +19,8 @@ class PromptOptimizer:
         wandb.login()
         self.randomize = True
         self.initial_prompt = "[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]"
-        self.initial_prompt = "defect"
-        self.initial_prompt = "[PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]"
+        #self.initial_prompt = "defect"
+        #self.initial_prompt = "[PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]"
         self.model = "Florence"
         self.optimizer = "COBYLA"
         self.ds_name = "defects"

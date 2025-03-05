@@ -21,7 +21,7 @@ class PromptOptimizer:
         self.initial_prompt = "[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]"
         self.initial_prompt = "defect"
         self.initial_prompt = "[PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]"
-        self.model = "Florence"
+        self.model = "DINO"
         self.optimizer = "COBYLA"
         self.ds_name = "defects"
         tags=["prompt_optimization_debug", self.ds_name, self.model, self.optimizer, f"randomize={self.randomize}", f"[{self.initial_prompt}]"]
@@ -125,7 +125,7 @@ class PromptOptimizer:
         return gt_class, TP, FP, FN, acc, F1, dataset
 
     def loss2(self, input_ids: torch.Tensor, eval_metrics: bool = False):
-        prompt = self.decode_prompt(self.tokenizer, input_ids)
+        prompt = self.decode_prompt(input_ids)
         print("Loss is being calculated for prompt:", prompt, "input_ids:", input_ids)
         gt_class, TP, FP, FN, acc, F1, dataset = self.step(prompt, eval_metrics)
         pred_bboxes = torch.empty(0, 4)
@@ -162,15 +162,12 @@ class PromptOptimizer:
         num_classes = len(self.gt_dataset.classes) + 1
         loss_fn = DETRLoss(nc=num_classes, aux_loss=False, use_fl=False, use_vfl=False)
         batch = {
-            'cls': gt_labels,
+            'cls': gt_labels.to(torch.int32),
             'bboxes': gt_bboxes.to(torch.float32),
             'gt_groups': gt_groups
         }
         pred_bboxes = pred_bboxes.unsqueeze(0).unsqueeze(0).to(torch.float32)
         pred_scores = pred_scores.unsqueeze(0).unsqueeze(0).to(torch.float32)
-        print("pred_bboxes:", pred_bboxes)
-        print("pred_scores:", pred_scores)
-        print("batch:", batch)
         loss_output = loss_fn.forward(
             pred_bboxes=pred_bboxes,
             pred_scores=pred_scores,
