@@ -31,7 +31,7 @@ class PromptOptimizer:
         self.run.config.update({
             "model": self.model,
             "dataset": self.ds_name,
-            "optimizer": "COBYLA",
+            "optimizer": self.optimizer,
             "maxiter": 100,
             "randomize": self.randomize,
             "initial_prompt": self.initial_prompt
@@ -54,7 +54,7 @@ class PromptOptimizer:
         # Remove tokenizer initialization
         # self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         # Initialize with ASCII encoding instead
-        self.initial_prompt = "defect"
+        self.initial_prompt = "defect knot crack stain"
         self.input_ids = self.encode_prompt(self.initial_prompt)
         # If randomizing, modify ASCII values directly
         if self.randomize:
@@ -158,11 +158,11 @@ class PromptOptimizer:
         if len(gt_groups) == 0:
             gt_groups = [len(gt_labels)]
         pred_labels = F.one_hot(pred_labels.long()).float()
-        gt_labels = gt_labels.to(torch.int32)
+        gt_labels = gt_labels.to(torch.int64)
         num_classes = len(self.gt_dataset.classes) + 1
         loss_fn = DETRLoss(nc=num_classes, aux_loss=False, use_fl=False, use_vfl=False)
         batch = {
-            'cls': gt_labels.to(torch.int32),
+            'cls': gt_labels.to(torch.int64),
             'bboxes': gt_bboxes.to(torch.float32),
             'gt_groups': gt_groups
         }
