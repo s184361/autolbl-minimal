@@ -8,7 +8,7 @@ import supervision as sv
 import matplotlib.pyplot as plt
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
-#from autodistill_grounding_dino import GroundingDINO
+# from autodistill_grounding_dino import GroundingDINO
 from utils.grounding_dino_model import GroundingDINO
 try:
     from autodistill_florence_2 import Florence2
@@ -61,15 +61,15 @@ def run_any_args(args):
     )
     print('Image count:', len(image_paths))
 
-    #titles = [os.path.splitext(os.path.basename(image_path))[0] for image_path in image_paths[:config['SAMPLE_SIZE']]]
-    #images = [cv2.imread(image_path) for image_path in image_paths[:config['SAMPLE_SIZE']]]
-    #plt.ion()
-    #sv.plot_images_grid(images=images, titles=titles, grid_size=config['SAMPLE_GRID_SIZE'], size=config['SAMPLE_PLOT_SIZE'])
-    #plt.savefig(os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_images_grid.png"))
+    # titles = [os.path.splitext(os.path.basename(image_path))[0] for image_path in image_paths[:config['SAMPLE_SIZE']]]
+    # images = [cv2.imread(image_path) for image_path in image_paths[:config['SAMPLE_SIZE']]]
+    # plt.ion()
+    # sv.plot_images_grid(images=images, titles=titles, grid_size=config['SAMPLE_GRID_SIZE'], size=config['SAMPLE_PLOT_SIZE'])
+    # plt.savefig(os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_images_grid.png"))
 
     if args.ontology in ["", None]:
         # Define ontology
-        
+
         with open("data/Semantic Map Specification.txt", "r") as file:
             content = file.read()
         names = re.findall(r"name=([^\n]+)", content)
@@ -183,8 +183,12 @@ def run_any_args(args):
     }
     """
     else:
+        try:
+            ont_list = dict(item.split(": ") for item in args.ontology.split(", "))
+
+        except:
+            ont_list = {args.ontology: "defect"}
         print(args.ontology)
-        ont_list = dict(item.split(": ") for item in args.ontology.split(", "))
         print(ont_list)
     # Initialize the model
     if args.model == "DINO":
@@ -215,11 +219,10 @@ def run_any_args(args):
             os.path.join(f"{HOME2}/croped_images", "overgrown.jpg"): "overgrown",
             os.path.join(f"{HOME2}/croped_images", "blue stain.jpg"): "blue stain"
         }
-    # Create embedding ontology and models
+        # Create embedding ontology and models
         images_to_classes = dict(sorted(images_to_classes.items(), key=lambda item: item[1]))
         img_emb = EmbeddingOntologyImage(images_to_classes)
         base_model = MetaCLIP(img_emb)
-        
 
     # Log model settings
     try:
@@ -245,7 +248,7 @@ def run_any_args(args):
         sahi=args.sahi,
         save_images=args.save_images
     )
-    #check if the dataset is empty
+    # check if the dataset is empty
     if len(dataset) == 0:
 
         dataset = base_model.label(
@@ -261,7 +264,7 @@ def run_any_args(args):
             annotations_directory_path=config['ANNOTATIONS_DIRECTORY_PATH'],
             data_yaml_path=config['DATA_YAML_PATH']
         )
-    
+
     print("Dataset size:", len(dataset))
     # Log the size of the dataset
     try:
@@ -269,22 +272,20 @@ def run_any_args(args):
     except:
         pass
     # Plot annotated images
-    #plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
+    # plot_annotated_images(dataset, config['SAMPLE_SIZE'], os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_annotated_images_grid.png"))
 
     # Evaluate the dataset
-    #update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    # update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     print(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    #gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    #print("GT Dataset size:", len(gt_dataset))
-    #compare_classes(gt_dataset, dataset)
-    #compare_image_keys(gt_dataset, dataset)
-    #evaluate_detections(dataset, gt_dataset)
-    #compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+    # gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    # print("GT Dataset size:", len(gt_dataset))
+    # compare_classes(gt_dataset, dataset)
+    # compare_image_keys(gt_dataset, dataset)
+    # evaluate_detections(dataset, gt_dataset)
+    # compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
     if len(dataset)<100:
-        #compare_plot(dataset, gt_dataset)
+        # compare_plot(dataset, gt_dataset)
         pass
-
-
 
     # Finish the wandb run
     if args.wandb:

@@ -1,0 +1,26 @@
+{
+  "lm": null,
+  "traces": [],
+  "train": [],
+  "demos": [],
+  "signature": {
+    "instructions": "Design a prompt for the Vision Language Model to detect wood defects in an image.",
+    "fields": [
+      {
+        "prefix": "Task:",
+        "description": "Description of the prompt to be designed as an input for the Vision Language Model"
+      },
+      {
+        "prefix": "Vlm Prompt:",
+        "description": "Input prompt for the Vision Language Model e.g. 'defect', 'crack', 'splinter'. Should be max 5 words"
+      }
+    ]
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.10",
+      "dspy": "2.6.6",
+      "cloudpickle": "3.1"
+    }
+  }
+}

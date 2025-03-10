@@ -2,12 +2,7 @@ import os
 import json
 import argparse
 import gc
-import torch
-from io import BytesIO
-from dotenv import load_dotenv
-from PIL import Image
-import requests
-import subprocess
+
 import pandas as pd
 import wandb
 import dspy
@@ -17,7 +12,6 @@ from run_any2 import run_any_args
 from utils.wandb_utils import *
 from dspy.teleprompt import MIPROv2
 from dspy.evaluate import Evaluate
-import random
 
 # Set CUDA memory allocation configuration
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -62,21 +56,34 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
 class Prompt_Design(dspy.Signature):
     """Design a prompt for the Vision Language Model to detect wood defects in an image."""
 
-    customer_message = dspy.InputField(
-        desc="Customer message during customer service interaction"
+    task = dspy.InputField(
+        desc="Description of the prompt to be designed as an input for the Vision Language Model"
     )
-    intent_labels = dspy.InputField(desc="Labels that represent customer intent")
-    answer = dspy.OutputField(desc="a label best matching customer's intent ")
+    vlm_prompt = dspy.OutputField(desc="Input prompt for the Vision Language Model e.g. 'defect', 'crack', 'splinter'. Should be max 5 words")
+    #score = dspy.OutputField(desc="Current F1 score for the prompt")
 
 
-def metric_function(example, pred):
+def metric_function(example, pred, trace=None):
     """
     Metric function to evaluate the output of the program.
     Returns the F1 score for the prompt.
     """
-    # Make sure we can access the prompt field
-    prompt = pred.answer if hasattr(pred, 'answer') else pred.output
-    
+    #print all imputs
+    print(f"Example: {example}")
+    print(f"Prediction: {pred}")
+    print(f"trace: {trace}")
+    # Handle different prediction formats
+    if isinstance(pred, str):
+        prompt = pred
+    elif hasattr(pred, 'vlm_prompt'):
+        prompt = pred.vlm_prompt
+    elif hasattr(pred, 'output'):
+        prompt = pred.output
+    else:
+        # Fallback for unknown prediction format
+        print(f"WARNING: Unexpected prediction format: {type(pred)}")
+        prompt = str(pred)
+
     # Load configuration
     with open("config.json", "r") as f:
         config = json.load(f)["local"]
@@ -90,18 +97,19 @@ def metric_function(example, pred):
 
     # Free memory before running detection
     gc.collect()
-    torch.cuda.empty_cache()
+    # torch.cuda.empty_cache()
 
     # Label images and get metrics
     _, TP, FP, FN, acc, F1 = label_images(
         config=config, gt_dataset=gt_dataset, prompt=prompt
     )
-    
+
     # Free memory after running detection
     gc.collect()
-    torch.cuda.empty_cache()
+    # torch.cuda.empty_cache()
     print(f"F1: {F1}")
     return F1
+
 
 def main():
     # Initialize wandb
@@ -117,7 +125,7 @@ def main():
     # load prompt_examples.csv
     prompt_examples = pd.read_csv("prompt_examples.csv")
     dspy_examples = []
-    customer_message = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
+    task = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
 
     # Define function to get examples with balanced classes
     def get_dspy_examples(df, k):
@@ -132,10 +140,10 @@ def main():
                 for _, row in class_df.iterrows():
                     dspy_examples.append(
                         dspy.Example(
-                            customer_message=customer_message,
-                            intent_labels=row["prompt"],
-                            answer=row["F1"]
-                        ).with_inputs("customer_message", "intent_labels")
+                            task=task,
+                            vlm_prompt=row["prompt"],
+                            score=row["F1"]
+                        ).with_inputs("task")
                     )
             except:
                 # If there aren't enough samples in a class, use what's available
@@ -143,10 +151,10 @@ def main():
                 for _, row in class_df.iterrows():
                     dspy_examples.append(
                         dspy.Example(
-                            customer_message=customer_message,
-                            intent_labels=row["prompt"],
-                            answer=row["F1"]
-                        ).with_inputs("customer_message", "intent_labels")
+                            task=task,
+                            vlm_prompt=row["prompt"],
+                            score=row["F1"]
+                        ).with_inputs("task")
                     )
         
         return dspy_examples
@@ -156,8 +164,8 @@ def main():
     devset = get_dspy_examples(prompt_examples, k=3)
     
     # Ensure no overlap between train and dev sets
-    dev_prompts = set([ex.intent_labels for ex in devset])
-    trainset = [ex for ex in trainset if ex.intent_labels not in dev_prompts]
+    dev_prompts = set([ex.vlm_prompt for ex in devset])
+    trainset = [ex for ex in trainset if ex.vlm_prompt not in dev_prompts]
     #remove dspy_examples from memory
     del dspy_examples, prompt_examples
     gc.collect()
@@ -168,7 +176,8 @@ def main():
 
     # Create and evaluate the baseline program
     print("Evaluating baseline program...")
-    program = dspy.ChainOfThought(Prompt_Design)
+    #program = dspy.ChainOfThought(Prompt_Design)
+    program = dspy.Predict(Prompt_Design)
     evaluate = Evaluate(
                     devset=devset,  # devset must be provided here
                     metric=metric_function, 
@@ -180,36 +189,37 @@ def main():
     baseline_metrics = evaluate(program)
 
     # Log baseline results
-    baseline_result = program(customer_message=devset[0].customer_message, intent_labels=devset[0].intent_labels)
+    baseline_result = program(task=devset[0].task, vlm_prompt=devset[0].vlm_prompt)
 
     # Optimize with MIPROv2
     print("Optimizing program with MIPROv2...")
     teleprompter = MIPROv2(
         metric=metric_function,
         auto="light",
-        max_bootstrapped_demos=0,
+        max_bootstrapped_demos=2,
+        num_threads=1,
                 )
 
     # Compile optimized program
     optimized_program = teleprompter.compile(
         program.deepcopy(),
         trainset=trainset,
-        max_bootstrapped_demos=0,
-        max_labeled_demos=2,
+        max_bootstrapped_demos=1,
+        max_labeled_demos=1,
         requires_permission_to_run=False,
         minibatch=False
     )
 
     # Save optimized program for future use
-    optimized_program.save("mipro_wood_defect_optimized")
+    optimized_program.save("mipro_wood_defect_optimized.json")
 
     # Evaluate the optimized program
     print("Evaluating optimized program...")
     optimized_metrics = evaluate(optimized_program, devset=devset)
 
     # Generate and test the final prompt
-    final_result = optimized_program(task_description=devset[0].task_description)
-    final_prompt = final_result.output
+    final_result = optimized_program(task=devset[0].task)
+    final_prompt = final_result.vlm_prompt
 
     print(f"Final optimized prompt: {final_prompt}")
 
@@ -225,7 +235,7 @@ def main():
 
     # Final evaluation with the optimized prompt
     gc.collect()
-    torch.cuda.empty_cache()
+    #torch.cuda.empty_cache()
     gt_class, TP, FP, FN, acc, F1 = label_images(
         config=config, gt_dataset=gt_dataset, prompt=final_prompt
     )
