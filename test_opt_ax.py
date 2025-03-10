@@ -21,8 +21,8 @@ class PromptOptimizer:
         wandb.login()
         self.randomize = True
         self.initial_prompt = "[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]"
-        self.initial_prompt = "defect"
-        self.initial_prompt = "[PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]"
+        #self.initial_prompt = "defect"
+        #self.initial_prompt = "[PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]"
         self.model = "DINO"
         self.optimizer = "COBYLA"
         self.ds_name = "defects"
@@ -65,7 +65,7 @@ class PromptOptimizer:
             self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         
         # Initialize with chosen encoding
-        self.initial_prompt = "defect knot crack stain"
+        #self.initial_prompt = "defect knot crack stain"
         self.input_ids = self.encode_prompt(self.initial_prompt)
         
         # If randomizing, modify values
@@ -227,7 +227,7 @@ class PromptOptimizer:
             pred_scores=pred_scores,
             batch=batch
         )
-        total_loss = 5 * loss_output['loss_class'] + loss_output['loss_bbox'] / 1000 + loss_output['loss_giou']
+        total_loss = 20 * loss_output['loss_class'] + loss_output['loss_bbox'] / 1000 + loss_output['loss_giou']
         wandb.log({
             "loss_giou": loss_output["loss_giou"],
             "bbox loss": loss_output["loss_bbox"],

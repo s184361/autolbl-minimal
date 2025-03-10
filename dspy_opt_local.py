@@ -28,8 +28,8 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     args = argparse.Namespace(
         config=config_path,
-        section="local",
-        model="DINO",
+        section="defects",
+        model="Florence",
         tag="default",
         sahi=False,
         reload=False,
@@ -79,7 +79,10 @@ def main():
     os.environ["ANTHROPIC_API_KEY"] = (
         "os.getenv("ANTHROPIC_API_KEY", "")"
     )
-    process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
+    try:
+        process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
+    except:
+        process = subprocess.Popen(["/work3/s184361/ollama/bin/ollama", "run", "deepseek-r1:1.5b"])
 
     lm = dspy.LM(
         "ollama/deepseek-r1:1.5b", api_base="http://localhost:11434", api_key=""
@@ -98,7 +101,7 @@ def main():
     gc.collect()
     torch.cuda.empty_cache()
     with open("config.json", "r") as f:
-        config = json.load(f)["local"]
+        config = json.load(f)["defects"]
     gt_dataset = load_dataset(
         config["GT_IMAGES_DIRECTORY_PATH"],
         config["GT_ANNOTATIONS_DIRECTORY_PATH"],
