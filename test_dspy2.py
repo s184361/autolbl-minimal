@@ -122,10 +122,43 @@ def main():
     )
     dspy.configure(lm=lm)
 
+    # Load configuration
+    with open("config.json", "r") as f:
+        config = json.load(f)["local"]
+
+    # Load ground truth dataset
+    gt_dataset = load_dataset(
+        config["GT_IMAGES_DIRECTORY_PATH"],
+        config["GT_ANNOTATIONS_DIRECTORY_PATH"],
+        config["GT_DATA_YAML_PATH"],
+    )
+    prompts = [
+        "blue stain",
+        "crack",
+        "dead knot",
+        "knot missing",
+        "knot with crack", 
+        "live knot",
+        "marrow",
+        "overgrown",
+        "quartzity",
+        "resin"
+    ]
+    prompt_examples = pd.DataFrame(columns=["prompt", "F1"])
+    for prompt in prompts:
+        _, TP, FP, FN, acc, F1 = label_images(
+        config=config, gt_dataset=gt_dataset, prompt=prompt)
+        prompt_examples = pd.concat([
+            prompt_examples,
+            pd.DataFrame([{
+                "prompt": prompt,
+                "F1": F1
+            }])
+        ], ignore_index=True)
     # load prompt_examples.csv
-    prompt_examples = pd.read_csv("prompt_examples.csv")
+    #prompt_examples = pd.read_csv("prompt_examples.csv")
     dspy_examples = []
-    task = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
+    #task = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
 
     # Define function to get examples with balanced classes
     def get_dspy_examples(df, k):
@@ -140,7 +173,7 @@ def main():
                 for _, row in class_df.iterrows():
                     dspy_examples.append(
                         dspy.Example(
-                            task=task,
+                            task=row["prompt"],
                             vlm_prompt=row["prompt"],
                             score=row["F1"]
                         ).with_inputs("task")
