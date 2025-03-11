@@ -25,8 +25,8 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     args = argparse.Namespace(
         config=config_path,
-        section="local",
-        model="DINO",
+        section="defects",
+        model="Florence",
         tag="default",
         sahi=False,
         reload=False,
@@ -86,7 +86,7 @@ def metric_function(example, pred, trace=None):
 
     # Load configuration
     with open("config.json", "r") as f:
-        config = json.load(f)["local"]
+        config = json.load(f)["defects"]
 
     # Load ground truth dataset
     gt_dataset = load_dataset(
@@ -144,21 +144,27 @@ def main():
         "quartzity",
         "resin"
     ]
-    prompt_examples = pd.DataFrame(columns=["prompt", "F1"])
-    for prompt in prompts:
-        _, TP, FP, FN, acc, F1 = label_images(
-        config=config, gt_dataset=gt_dataset, prompt=prompt)
-        prompt_examples = pd.concat([
-            prompt_examples,
-            pd.DataFrame([{
-                "prompt": prompt,
-                "F1": F1
-            }])
-        ], ignore_index=True)
+    try:
+        # Create a dataframe to store prompt examples
+        prompt_examples = pd.read_csv("prompt_examples_small.csv")
+    except:
+        prompt_examples = pd.DataFrame(columns=["prompt", "F1"])
+        for prompt in prompts:
+            _, TP, FP, FN, acc, F1 = label_images(
+            config=config, gt_dataset=gt_dataset, prompt=prompt)
+            prompt_examples = pd.concat([
+                prompt_examples,
+                pd.DataFrame([{
+                    "prompt": prompt,
+                    "F1": F1
+                }])
+            ], ignore_index=True)
+        #save as csv
+        prompt_examples.to_csv("prompt_examples_small.csv", index=False)
     # load prompt_examples.csv
     #prompt_examples = pd.read_csv("prompt_examples.csv")
     dspy_examples = []
-    #task = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
+    task = "Give a prompt for Vision Language Model to detect wood defects in an image.The ouput should be a string with no more than 100 characters."
 
     # Define function to get examples with balanced classes
     def get_dspy_examples(df, k):
