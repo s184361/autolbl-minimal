@@ -135,5 +135,8 @@ def detections_to_wandb(img, detections, classes)->wandb.Image:
                 }
             })
         #convert image to PIL
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    try:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    except:
+        pass
     return wandb.Image(img, boxes=boxes)

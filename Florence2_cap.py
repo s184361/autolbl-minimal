@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches  
 import wandb  # Import wandb
 from utils.wandb_utils import detections_to_wandb  # Import the utility function
-
+import numpy as np
+import pandas as pd
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
@@ -83,7 +84,7 @@ def label(
         """
         Label a dataset with the model.
         """
-        wandb.init(project="Florence2")
+        wandb.init(project="Florence2", group="wood_default")
         if output_folder is None:
             output_folder = input_folder + "_labeled"
 
@@ -91,23 +92,26 @@ def label(
 
         image_paths = glob.glob(input_folder + "/*" + extension)
         detections_map = {}
-
+        df = pd.DataFrame()
         progress_bar = tqdm(image_paths, desc="Labeling images")
         for f_path in progress_bar:
             progress_bar.set_description(desc=f"Labeling {f_path}", refresh=True)
 
             image = Image.open(f_path)
             
-            #task_prompt = '<MORE_DETAILED_CAPTION>'
-            #results = run_example(task_prompt=task_prompt, image=image)
-            text_input = "blue stain: blue stain, crack: crack, Dead knot or partly dead knot with a ring of bark around the circumference: dead knot, fallen out or partially fallen out knot: knot missing, cracks inside and around knot: knot with crack, fresh and firm knots or sound knot: live knot, marrow: marrow, overgrown: overgrown, quartzity: quartzity, resin pocket that is completly dry i.e no sticky resin completly crystalizd or resind pocket where resin is partly crstalized or complately in liquid form: resin, Firm black knot that is fixed with surrouding wood: black knot"#results[task_prompt]
+            task_prompt = '<MORE_DETAILED_CAPTION>'
+            results = run_example(task_prompt=task_prompt, image=image)
+            text_input = results['<MORE_DETAILED_CAPTION>']
+            #text_input = "blue stain: blue stain, crack: crack, Dead knot or partly dead knot with a ring of bark around the circumference: dead knot, fallen out or partially fallen out knot: knot missing, cracks inside and around knot: knot with crack, fresh and firm knots or sound knot: live knot, marrow: marrow, overgrown: overgrown, quartzity: quartzity, resin pocket that is completly dry i.e no sticky resin completly crystalizd or resind pocket where resin is partly crstalized or complately in liquid form: resin, Firm black knot that is fixed with surrouding wood: black knot"#results[task_prompt]
             task_prompt = '<CAPTION_TO_PHRASE_GROUNDING>'
             results = run_example(task_prompt, text_input, image=image)
+            #print(results.loss)
             results['<MORE_DETAILED_CAPTION>'] = text_input
-
+            """
             fig=plot_bbox(image, results['<CAPTION_TO_PHRASE_GROUNDING>'])
 
             #save the image in results folder
+           
             try:
                 plt.savefig(output_folder + '/' + f_path)
             except:
@@ -115,6 +119,7 @@ def label(
                 os.makedirs(output_folder, exist_ok=True)
                 plt.savefig(output_folder + '/' + f_path)
             plt.close()
+            """
 
             # Prepare data for WandB
             detections = results['<CAPTION_TO_PHRASE_GROUNDING>']
@@ -122,11 +127,19 @@ def label(
             bboxes = detections['bboxes']
             formatted_detections = []
             for i, bbox in enumerate(bboxes):
-                formatted_detections.append([bbox, 1.0, i])  # Assuming confidence is 1.0 and class ID is the index
+               formatted_detections.append([np.array(bbox), 1.0, 1.0, i])  # Include class name and ID
 
-            wandb_image = detections_to_wandb(image, detections, classes)
+            wandb_image = detections_to_wandb(image, formatted_detections, classes)
             image_name = os.path.basename(f_path)
-            wandb.log({image_name: wandb_image})
+            #log the detailed caption and the image in df
+            new_row = pd.DataFrame({
+                'image_name': [image_name], 
+                '<MORE_DETAILED_CAPTION>': [text_input], 
+                'wandb_image': [wandb_image]
+            })
+            df = pd.concat([df, new_row], ignore_index=True)
+            #wandb.log({image_name: wandb_image})
+        wandb.log({"table": wandb.Table(dataframe=df)})
         wandb.finish()
 
 label(input_folder='images', output_folder='results')

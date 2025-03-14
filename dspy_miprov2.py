@@ -443,7 +443,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run DSPy Prompt Optimization")
     parser.add_argument("--config", default="config.json", help="Path to config file")
     parser.add_argument("--section", default="defects", help="Section in config file")
-    parser.add_argument("--model", default="Florence", help="Vision model to use")
+    parser.add_argument("--model", default="DINO", help="Vision model to use")
     parser.add_argument("--lm_model", default="ollama/deepseek-r1:1.5b", help="Language model to use")
     parser.add_argument("--randomize", action="store_true", help="Whether to randomize initial prompts")
     args = parser.parse_args()
