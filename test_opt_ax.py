@@ -41,13 +41,13 @@ class PromptOptimizer:
 
         torch.cuda.empty_cache()
         wandb.login()
-        self.randomize = False
+        self.randomize = randomize
         #self.initial_prompt = "[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]"
         #self.initial_prompt = "defect"
         self.initial_prompt = initial_prompt
         self.model = model
-        self.optimizer = "ax"
-        self.ds_name = "tires"
+        self.optimizer = optimizer
+        self.ds_name = ds_name
         self.encoding_type = encoding_type  # 'ascii' or 'bert'
         self.best_accuracy = False
         tags=["Ax_optimization", self.ds_name, self.model, self.optimizer, 

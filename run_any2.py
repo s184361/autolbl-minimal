@@ -46,7 +46,8 @@ def run_any_args(args):
 
     # Reset folders
     try:
-        reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
+        print("Resetting folders")
+        #reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
     except:
         print("No folders to delete")
 
