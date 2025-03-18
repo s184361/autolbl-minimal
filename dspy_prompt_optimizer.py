@@ -31,7 +31,7 @@ class Prompt_Design(dspy.Signature):
         desc="Initial prompt of the defect user wants to detect. Should be short. It should not be a command like 'detect' or 'find'. It should be a noun or noun phrase. It should be a single word if possible. Use only nouns and adjectives. Do not use word like 'image', 'photo', 'picture', 'detailed','precise', 'detect', 'find'",
         default="defect",
     )
-    vlm_prompt = dspy.OutputField(desc = f"Describe how does {task} look like. Don't use words like 'detect' or 'find'. Don't ask for a specific design or look. Use only nouns and adjectives. Don't ask for a detailed or precise detection. Don't use words like 'image', 'photo', 'picture'. Don't as questions like 'what is the defect?' or 'where is the defect?'. Don't use words like 'improved', 'better', 'design', 'look','identify', 'locate', 'find', 'detect', 'image', 'photo', 'picture', 'detailed','precise'.")
+    vlm_prompt = dspy.OutputField(desc = f"Describe how does {task} look like. Here is an example 'Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes.'")
 
 
 class DSPyPromptOptimizer:
@@ -83,10 +83,12 @@ class DSPyPromptOptimizer:
         
         # Load ground truth dataset
         self.gt_dataset = self.load_gt_dataset()
-        
+        self.gt_dataset = self.set_one_class(self.gt_dataset)
+        self.check_classes(self.gt_dataset)
         # Default prompts list
         self.default_prompts = [
-            "blue stain", "crack", "dead knot"#, "knot missing", "knot with crack",
+            "blue stain", "crack", "dead knot", 
+            "Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes."#, "knot missing", "knot with crack",
             #"live knot", "marrow", "overgrown", "quartzity", "resin", "blue stain crack dead knot missing knot with crack live knot marrow overgrown quartzity resin"
         ]
         
@@ -119,6 +121,21 @@ class DSPyPromptOptimizer:
         )
         return gt_dataset
     
+    @staticmethod
+    def set_one_class(gt_dataset):
+        for key in gt_dataset.annotations.keys():
+            gt_dataset.annotations[key].class_id = np.zeros_like(gt_dataset.annotations[key].class_id)
+        gt_dataset.classes = ['defect']
+        return gt_dataset
+
+    @staticmethod
+    def check_classes(gt_dataset):
+        for key in gt_dataset.annotations.keys():
+            for i in range(len(gt_dataset.annotations[key])):
+                if gt_dataset.annotations[key][i].class_id != len(gt_dataset.classes) - 1:
+                    return False
+        return True
+
     def label_images(self, prompt: str, eval_metrics: bool = True):
         """
         Label images using the provided prompt and evaluate against ground truth.
@@ -561,8 +578,8 @@ class DSPyPromptOptimizer:
         teleprompter = MIPROv2(
             metric=self.metric_function,
             auto="medium",
-            max_bootstrapped_demos=0,
-            max_labeled_demos=0,
+            max_bootstrapped_demos=2,
+            max_labeled_demos=2,
             num_threads=1
         )
         """
@@ -693,7 +710,7 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run DSPy Prompt Optimization")
     parser.add_argument("--config", default="config.json", help="Path to config file")
-    parser.add_argument("--section", default="defects", help="Section in config file")
+    parser.add_argument("--section", default="wood", help="Section in config file")
     parser.add_argument("--model", default="Florence", help="Vision model to use")
     parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
     parser.add_argument("--randomize", default=False, type=bool, help="Randomize initial prompts")
