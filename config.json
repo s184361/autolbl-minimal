@@ -182,5 +182,28 @@
             16
         ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
+    },
+    "tires": {
+        "HOME": "/zhome/4a/b/137804/Desktop/autolbl/",
+        "IMAGE_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/data/tires/images",
+        "ANNOTATIONS_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset/train/labels",
+        "IMAGES_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset/train/images",
+        "DATA_YAML_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset/data.yaml",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/data/tires/labels",
+        "GT_IMAGES_DIRECTORY_PATH": "/zhome/4a/b/137804/Desktop/autolbl/data/tires/images",
+        "GT_DATA_YAML_PATH": "/zhome/4a/b/137804/Desktop/autolbl/data/tires/data.yaml",
+        "DATASET_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset",
+        "RESULTS_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/results",
+        "SAMPLE_SIZE": 6,
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
+        "PROMPT": "defects spots anomalies misscoloration irregularities"
+
     }
 }

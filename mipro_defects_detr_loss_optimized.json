@@ -1,0 +1,32 @@
+{
+  "predict": {
+    "lm": null,
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "Design a prompt for a detection task. Don't use words like 'detect' or 'find'.\nDon't ask for a specific design or look. Use only nouns and adjectives.\nDon't ask for a detailed or precise detection. Don't use words like 'image', 'photo', 'picture'.\nDon't as questions like 'what is the defect?' or 'where is the defect?'.\nDon't use words like 'improved', 'better', 'design', 'look','identify', 'locate', 'find', 'detect', 'image', 'photo', 'picture', 'detailed','precise'.",
+      "fields": [
+        {
+          "prefix": "Task:",
+          "description": "Initial prompt of the defect user wants to detect. Should be short. It should not be a command like 'detect' or 'find'. It should be a noun or noun phrase. It should be a single word if possible. Use only nouns and adjectives. Do not use word like 'image', 'photo', 'picture', 'detailed','precise', 'detect', 'find'"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Vlm Prompt:",
+          "description": "Describe how does annotation=NoneType required=False default='defect' json_schema_extra={'desc': \"Initial prompt of the defect user wants to detect. Should be short. It should not be a command like 'detect' or 'find'. It should be a noun or noun phrase. It should be a single word if possible. Use only nouns and adjectives. Do not use word like 'image', 'photo', 'picture', 'detailed','precise', 'detect', 'find'\", '__dspy_field_type': 'input'} look like. Don't use words like 'detect' or 'find'. Don't ask for a specific design or look. Use only nouns and adjectives. Don't ask for a detailed or precise detection. Don't use words like 'image', 'photo', 'picture'. Don't as questions like 'what is the defect?' or 'where is the defect?'. Don't use words like 'improved', 'better', 'design', 'look','identify', 'locate', 'find', 'detect', 'image', 'photo', 'picture', 'detailed','precise'."
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "2.6.2",
+      "cloudpickle": "3.1"
+    }
+  }
+}

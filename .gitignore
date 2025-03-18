@@ -372,3 +372,6 @@ OpenGroundingDino/
 aquarium_data/
 input_params/
 images_local/
+*.err
+*.out
+*.csv

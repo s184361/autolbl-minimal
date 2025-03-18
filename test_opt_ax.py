@@ -15,24 +15,46 @@ import random
 from utils.wandb_utils import compare_plot as compare_wandb_plot
 
 from ax.service.ax_client import AxClient, ObjectiveProperties
+
+def prase_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--n_trials', type=int, default=1)
+    parser.add_argument('--config', type=str, default='config.json')
+    
+    parser.add_argument('--randomize', type=bool, default=False)
+    parser.add_argument('--initial_prompt', type=str, default='defect')
+    parser.add_argument('--ds_name', type=str, default='tires')
+    parser.add_argument('--model', type=str, default='Florence')
+    parser.add_argument('--optimizer', type=str, default='ax')
+    parser.add_argument('--encoding_type', type=str, default='bert')
+    return parser.parse_args()
+
 class PromptOptimizer:
-    def __init__(self, config_path='config.json', encoding_type='bert'):
+    def __init__(self,
+                config_path='config.json',
+                encoding_type='bert',
+                randomize=False,
+                model="Florence",
+                optimizer="ax",
+                ds_name="tires",
+                initial_prompt="[PAD] [PAD] [PAD]"):
+
         torch.cuda.empty_cache()
         wandb.login()
-        self.randomize = True
-        self.initial_prompt = "[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]"
-        self.initial_prompt = "defect"
-        self.initial_prompt = "[PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]"
-        self.model = "DINO"
-        self.optimizer = "COBYLA"
-        self.ds_name = "defects"
+        self.randomize = randomize
+        #self.initial_prompt = "[PAD] knot [PAD] [PAD] defect [PAD] crack [PAD]"
+        #self.initial_prompt = "defect"
+        self.initial_prompt = initial_prompt
+        self.model = model
+        self.optimizer = optimizer
+        self.ds_name = ds_name
         self.encoding_type = encoding_type  # 'ascii' or 'bert'
-        
-        tags=["prompt_optimization_debug", self.ds_name, self.model, self.optimizer, 
+        self.best_accuracy = False
+        tags=["Ax_optimization", self.ds_name, self.model, self.optimizer, 
               f"randomize={self.randomize}", f"[{self.initial_prompt}]", f"encoding={self.encoding_type}"]
         self.pd_prompt_table = pd.DataFrame()
 
-        self.run = wandb.init(project="backprop", job_type="prompt_optimization", tags=tags)
+        self.run = wandb.init(project="prompt_opt_exp", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
         self.run.config.update({
             "model": self.model,
             "dataset": self.ds_name,
@@ -65,7 +87,7 @@ class PromptOptimizer:
             self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         
         # Initialize with chosen encoding
-        self.initial_prompt = "defect knot crack stain"
+        #self.initial_prompt = "defect knot crack stain"
         self.input_ids = self.encode_prompt(self.initial_prompt)
         
         # If randomizing, modify values
@@ -148,7 +170,8 @@ class PromptOptimizer:
             FN = None
             acc = None
             F1 = None
-        #compare_wandb_plot(dataset, self.gt_dataset)
+        if self.best_accuracy:
+            compare_wandb_plot(dataset, self.gt_dataset)
         return gt_class, TP, FP, FN, acc, F1, dataset
 
     def loss2(self, input_ids: torch.Tensor, eval_metrics: bool = False):
@@ -227,7 +250,7 @@ class PromptOptimizer:
             pred_scores=pred_scores,
             batch=batch
         )
-        total_loss = 5 * loss_output['loss_class'] + loss_output['loss_bbox'] / 1000 + loss_output['loss_giou']
+        total_loss = 20 * loss_output['loss_class'] + loss_output['loss_bbox'] / 1000 + loss_output['loss_giou']
         wandb.log({
             "loss_giou": loss_output["loss_giou"],
             "bbox loss": loss_output["loss_bbox"],
@@ -318,6 +341,29 @@ class PromptOptimizer:
 
 
 if __name__ == "__main__":
-    optimizer = PromptOptimizer()
-    optimizer.optimize()
-    optimizer.ax_client.get_trials_data_frame()
+    args = prase_args()
+    n_trials = args.n_trials
+    for i in range(n_trials):
+        print(f"Trial {i+1}/{n_trials}")
+        optimizer = PromptOptimizer(
+            config_path=args.config,
+            encoding_type=args.encoding_type,
+            randomize=args.randomize,
+            model=args.model,
+            optimizer=args.optimizer,
+            ds_name=args.ds_name,
+            initial_prompt=args.initial_prompt
+        )
+        optimizer.optimize()
+        optimizer.ax_client.get_trials_data_frame()
+        #get best parameters
+        best_parameters, values = optimizer.ax_client.get_best_parameters()
+        print(f"Best parameters: {best_parameters}")
+        #run evaluate with best parameters
+        optimizer.best_accuracy = True
+        optimizer.loss2(torch.tensor([best_parameters[f"char_{i}"] for i in range(len(best_parameters))]))
+        
+        wandb.finish()
+        torch.cuda.empty_cache()
+
+        

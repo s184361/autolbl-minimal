@@ -12,8 +12,8 @@ from autodistill.detection import CaptionOntology
 from utils.grounding_dino_model import GroundingDINO
 try:
     from autodistill_florence_2 import Florence2
-    from autodistill_sam_hq.samhq_model import SAMHQ
-    from utils.metaclip_model import MetaCLIP
+    #from autodistill_sam_hq.samhq_model import SAMHQ
+    #from utils.metaclip_model import MetaCLIP
 except:
     pass
 from utils.composed_detection_model import ComposedDetectionModel2
@@ -46,7 +46,8 @@ def run_any_args(args):
 
     # Reset folders
     try:
-        reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
+        print("Resetting folders")
+        #reset_folders(config['DATASET_DIR_PATH'], config.get('RESULTS_DIR_PATH', 'results'))
     except:
         print("No folders to delete")
 
@@ -294,6 +295,8 @@ def run_any_args(args):
 
 def main():
     args = parse_arguments()
+    #set section to work3_tires
+    args.section = "tires"
     run_any_args(args)
 if __name__ == "__main__":
     main() 
