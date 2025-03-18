@@ -86,7 +86,7 @@ class MetaCLIP(ClassificationBaseModel):
             return outputs
 
     def embed_text(self, input: str) -> torch.Tensor:
-        inputs = self.processor(text=input, return_tensors="pt", padding=True)
+        inputs = self.tokenizer(input, return_tensors="pt", padding=True).to(DEVICE)
 
         with torch.no_grad():
             outputs = self.model.get_text_features(**inputs)
