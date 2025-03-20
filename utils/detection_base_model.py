@@ -111,7 +111,7 @@ class DetectionBaseModel(BaseModel):
             dataset = sv.DetectionDataset(
                 self.ontology.classes(), image_paths, detections_map
             )
-
+        print(dataset)
         dataset.as_yolo(
             output_folder + "/images",
             output_folder + "/annotations",
@@ -125,6 +125,7 @@ class DetectionBaseModel(BaseModel):
                 output_folder + "/annotations", image_names, detections_map
             )
         if save_images:
+            print("Copying images to output folder...")
             split_data(output_folder, record_confidence=record_confidence)
 
         if human_in_the_loop:

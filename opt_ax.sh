@@ -22,8 +22,8 @@
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
-#BSUB -o gpu_%J.out
-#BSUB -e gpu_%J.err
+#BSUB -oo gpu_%J.out
+#BSUB -eo gpu_%J.err
 #BSUB -R "span[hosts=1]"
 # -- end of LSF options --
 
@@ -62,8 +62,8 @@ echo "Running bnvtop $LSB_JOBID to monitor GPU usage"
 bnvtop $LSB_JOBID &
 
 clear_gpu
-python test_opt_ax.py --n_trials=1 --randomize=False --initial_prompt=defect --ds_name=wood --model=Florence --optimizer=ax --encoding_type=ascii
-python test_opt_ax.py --n_trials=1 --randomize=False --initial_prompt=defect  --ds_name=wood --model=DINO --optimizer=ax --encoding_type=ascii
+python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=Florence --optimizer=ax --encoding_type=bert
+python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=DINO --optimizer=ax --encoding_type=bert
 
 #bsub -v "MODEL=Florence DINO" < opt_ax.sh
 
