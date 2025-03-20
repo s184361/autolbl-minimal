@@ -238,7 +238,7 @@ def run_any_args(args):
         for key, value in ont_list.items():
             table.add_data(key, value)
         # Log the table
-        wandb.log({"Prompt Table": table})
+        #wandb.log({"Prompt Table": table})
     except:
         print("No wandb")
 
