@@ -74,9 +74,9 @@ def compare_plot(dataset, gt_dataset, results_dir="results",run=None):
         df_images = pd.concat([df_images, pd.DataFrame([{"image_id": name_gt,
                                     "gt_annotation": wandb_gt_img,
                                     "inference_annotation": wandb_img}])], ignore_index=True)
-        run.log({"for_loop_images": wandb.Table(dataframe=df_images)})
+        #run.log({"for_loop_images": wandb.Table(dataframe=df_images)})
     
-    df = pd.DataFrame({"image_id": name, "gt_annotation": wandb_gt_images, "inference_annotation": wandb_gt_images})
+    df = pd.DataFrame({"image_id": name, "gt_annotation": wandb_gt_images, "inference_annotation": wandb_images})
     wandb_tab2 = wandb.Table(dataframe=df)
     run.log({"comparison_images2": wandb_tab2})
     return df
