@@ -238,7 +238,9 @@ def run_any_args(args,loaded_model=None):
         base_model = MetaCLIP(img_emb)
     elif loaded_model is not None:
         ("Using loaded model")
-        base_model = loaded_model 
+        base_model = loaded_model
+        #update the ontology
+        base_model.ontology = CaptionOntology(ont_list) 
     elif args.model == "Qwen":
         print("Load Qwen model")
         base_model = Qwen25VL(ontology=CaptionOntology(ont_list),hf_token="os.getenv("HF_TOKEN", "")")

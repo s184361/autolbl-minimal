@@ -10,6 +10,7 @@ from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 # from autodistill_grounding_dino import GroundingDINO
 from utils.grounding_dino_model import GroundingDINO
+from autodistill_florence_2 import Florence2
 try:
     from autodistill_florence_2 import Florence2
     #from autodistill_sam_hq.samhq_model import SAMHQ
@@ -42,7 +43,7 @@ def run_any_args(args):
     # Initialize wandb
     if args.wandb:
         wandb.login()
-        wandb.init(project="auto_new_wood_annotations", name=f"{args.model}_{args.tag}", tags=[args.tag])
+        wandb.init(project="Florence_fix", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     try:
@@ -278,19 +279,25 @@ def run_any_args(args):
     # Evaluate the dataset
     # update_labels(config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     print(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    # gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     # print("GT Dataset size:", len(gt_dataset))
     # compare_classes(gt_dataset, dataset)
     # compare_image_keys(gt_dataset, dataset)
-    # evaluate_detections(dataset, gt_dataset)
-    # compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
-    if len(dataset)<100:
-        # compare_plot(dataset, gt_dataset)
-        pass
+    # 
 
     # Finish the wandb run
     if args.wandb:
-        wandb.finish()
+        
+        if len(dataset)<100:
+            gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+            evaluate_detections(dataset, gt_dataset)
+            confusion_matrix, acc, map_result=compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+            TP = confusion_matrix[0][0]
+            FP = confusion_matrix[0][1]
+            FN = confusion_matrix[1][0]
+            TN = confusion_matrix[1][1]
+            F1 = 2*TP/(2*TP+FP+FN)
+            wandb.log({"F1": F1, "TP": TP, "FP": FP, "FN": FN, "TN": TN, "Accuracy": acc, "MAP": map_result})
+            wandb.finish()
     return dataset
 
 def main():

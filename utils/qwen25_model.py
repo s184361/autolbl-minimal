@@ -57,9 +57,9 @@ class Qwen25VL(DetectionBaseModel):
     
     def predict(self, input: str, confidence: float = 0.5) -> sv.Detections:
         image = load_image(input, return_format="PIL")
-        ontology_classes = self.ontology.classes()
+        ontology_prompts = self.ontology.prompts()
 
-        PROMPT = "Outline the position of " + ", ".join(ontology_classes) + " and output all the coordinates in JSON format."
+        PROMPT = "Outline the position of the objects according to description '" + ", ".join(ontology_prompts) + ".' Output all the coordinates in JSON format."
         print(PROMPT)
         resolution_wh = image.size
         response, input_wh = self.run_qwen_2_5_vl_inference(
