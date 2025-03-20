@@ -22,9 +22,9 @@ def prase_args():
     parser.add_argument('--config', type=str, default='config.json')
     
     parser.add_argument('--randomize', type=bool, default=False)
-    parser.add_argument('--initial_prompt', type=str, default='[PAD] [PAD] [PAD]')
+    parser.add_argument('--initial_prompt', type=str, default='[PAD] [PAD]')
     parser.add_argument('--ds_name', type=str, default='tires')
-    parser.add_argument('--model', type=str, default='Florence')
+    parser.add_argument('--model', type=str, default='DINO')
     parser.add_argument('--optimizer', type=str, default='ax')
     parser.add_argument('--encoding_type', type=str, default='bert')
     return parser.parse_args()
@@ -35,7 +35,7 @@ class PromptOptimizer:
                 encoding_type='bert',
                 randomize=False,
                 model="Florence",
-                optimizer="ax",
+                optimizer="ax_F1",
                 ds_name="tires",
                 initial_prompt="[PAD] [PAD] [PAD]"):
 
@@ -54,7 +54,7 @@ class PromptOptimizer:
               f"randomize={self.randomize}", f"[{self.initial_prompt}]", f"encoding={self.encoding_type}"]
         self.pd_prompt_table = pd.DataFrame()
 
-        self.run = wandb.init(project="prompt_opt_exp_F1", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
+        self.run = wandb.init(project="prompt_opt_exp_acc", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
         self.run.config.update({
             "model": self.model,
             "dataset": self.ds_name,
@@ -223,7 +223,7 @@ class PromptOptimizer:
             })
             
             #update the prompt table
-            new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], "loss_giou": [1000.0], "bbox_loss": [1000.0], "class_loss": [1000.0]})
+            new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'error': ['Empty tensors'], 'total_loss': [total_loss], 'bbox_loss': [1000.0], 'class_loss': [1000.0], 'giou_loss': [1000.0]})
             self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
             wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
             
@@ -251,7 +251,7 @@ class PromptOptimizer:
             pred_scores=pred_scores,
             batch=batch
         )
-        total_loss = 20 * loss_output['loss_class'] + loss_output['loss_bbox'] / 1000 + loss_output['loss_giou']
+        total_loss = 2 * loss_output['loss_class'] + loss_output['loss_bbox'] / 1000 + loss_output['loss_giou']
         wandb.log({
             "loss_giou": loss_output["loss_giou"],
             "bbox loss": loss_output["loss_bbox"],
@@ -267,7 +267,7 @@ class PromptOptimizer:
         })
 
         #update the prompt table
-        new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], "loss_giou": [loss_output["loss_giou"]], "bbox_loss": [loss_output["loss_bbox"]], "class_loss": [loss_output['loss_class']]})
+        new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], 'bbox_loss': [loss_output['loss_bbox']], 'class_loss': [loss_output['loss_class']], 'giou_loss': [loss_output['loss_giou']]})
         self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
         #upload the prompt table to wandb
         wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
@@ -280,7 +280,7 @@ class PromptOptimizer:
             eval_metrics=True
         )
         print(f"Loss: {loss}, Prompt: {prompt}")
-        return F1#float(loss)  # Ensure we return a Python float, not a tensor
+        return float(F1)  # Ensure we return a Python float, not a tensor
 
     def optimize(self):
         # Define the length of our prompt
@@ -298,16 +298,40 @@ class PromptOptimizer:
                 "name": f"char_{i}",
                 "type": "range",
                 "bounds": bounds,
-                "value_type": "int",
+                "value_type": "int",  # Ensures integer parameters
             })
         
-        # Create experiment with individual parameters for each token position
+        # Import necessary Ax components for custom generation strategy
+        from ax.modelbridge.registry import Models
+        from ax.modelbridge.generation_strategy import GenerationStrategy, GenerationStep
+        
+        # Create a proper generation strategy with Thompson Sampling
+        generation_strategy = GenerationStrategy(
+            name="Sobol+Thompson_Sampling",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=99,  # Use 5 trials of Sobol for initial exploration
+                    min_trials_observed=5,
+                    enforce_num_trials=True,
+                ),
+                GenerationStep(
+                    model=Models.EMPIRICAL_BAYES_THOMPSON,  # Use Thompson Sampling for exploitation
+                    num_trials=-1,  # -1 means unlimited trials
+                    max_parallelism=1,  # Process trials sequentially
+                    model_kwargs={"min_weight": 0.0}  # Control exploration vs exploitation
+                ),
+            ],
+        )
+        
+        # Create experiment with our custom generation strategy
+        self.ax_client = AxClient(generation_strategy=generation_strategy)
         self.ax_client.create_experiment(
             name="prompt_optimization",
             parameters=parameters,
             objectives={"loss": ObjectiveProperties(minimize=True)},
         )
-
+        
         # Create initial parameter dictionary with each token position
         initial_params = {}
         for i in range(prompt_length):
@@ -367,4 +391,3 @@ if __name__ == "__main__":
         wandb.finish()
         torch.cuda.empty_cache()
 
-        
