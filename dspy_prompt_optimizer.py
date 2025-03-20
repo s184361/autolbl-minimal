@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from ultralytics.models.utils.loss import DETRLoss
 from utils.check_labels import *
 from run_any2 import run_any_args
+from run_any3 import run_any_args as run_qwen
 from utils.wandb_utils import *
 from dspy.teleprompt import MIPROv2
 from dspy.evaluate import Evaluate 
@@ -36,7 +37,7 @@ class Prompt_Design(dspy.Signature):
 
 class DSPyPromptOptimizer:
     def __init__(self, config_path='config.json', section='wood', model='DINO', 
-                 lm_model="ollama/deepseek-r1:1.5b", randomize=False, use_detr_loss=True):
+                 lm_model="ollama/deepseek-r1:1.5b", randomize=False, use_detr_loss=True,loaded_model=None):
         """
         Initialize the DSPy Prompt Optimizer
         
@@ -55,7 +56,7 @@ class DSPyPromptOptimizer:
         self.initial_prompt = "defect"  # Default initial prompt
         self.use_detr_loss = use_detr_loss
         self.gt_dict = None  # Will be populated when needed for DETR loss
-        
+        self.loaded_model = loaded_model
         # Initialize wandb
         wandb.login()
         tags = ["dspy_prompt_optimization", self.ds_name, self.model,
@@ -155,7 +156,10 @@ class DSPyPromptOptimizer:
         )
 
         # Run detection on images
-        dataset = run_any_args(args)
+        if self.model == "Qwen":
+            dataset = run_qwen(args,loaded_model=self.loaded_model)
+        else:
+            dataset = run_any_args(args)
 
         if eval_metrics:
             # Evaluate detections against ground truth
@@ -578,8 +582,8 @@ class DSPyPromptOptimizer:
         teleprompter = MIPROv2(
             metric=self.metric_function,
             auto="medium",
-            max_bootstrapped_demos=2,
-            max_labeled_demos=2,
+            max_bootstrapped_demos=0,
+            max_labeled_demos=0,
             num_threads=1
         )
         """
@@ -711,13 +715,19 @@ def main():
     parser = argparse.ArgumentParser(description="Run DSPy Prompt Optimization")
     parser.add_argument("--config", default="config.json", help="Path to config file")
     parser.add_argument("--section", default="wood", help="Section in config file")
-    parser.add_argument("--model", default="Florence", help="Vision model to use")
+    parser.add_argument("--model", default="Qwen", help="Vision model to use")
     parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
     parser.add_argument("--randomize", default=False, type=bool, help="Randomize initial prompts")
     parser.add_argument("--use_detr_loss",default=True, type=bool, help="Use DETR loss function instead of F1 score")
     parser.add_argument("--example_file", default=None, help="Path to example file (optional)")
     args = parser.parse_args()
-    
+    if args.model == "Qwen":
+        # Set up Qwen model
+        from utils.qwen25_model import Qwen25VL
+        from autodistill.detection import CaptionOntology
+        q25 = Qwen25VL(ontology=CaptionOntology({"defect":"defect"}),hf_token="os.getenv("HF_TOKEN", "")")
+    else:
+        q25 = None
     # Create optimizer and run the optimization pipeline
     optimizer = DSPyPromptOptimizer(
         config_path=args.config,
@@ -725,7 +735,8 @@ def main():
         model=args.model,
         lm_model=args.lm_model,
         randomize=args.randomize,
-        use_detr_loss=args.use_detr_loss
+        use_detr_loss=args.use_detr_loss,
+        loaded_model=q25
     )
     
     final_prompt, final_metrics = optimizer.run_optimization(args.example_file)
