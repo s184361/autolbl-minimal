@@ -212,7 +212,7 @@ def from_qwen_2_5_vl(
     xyxy = xyxy / [in_w, in_h, in_w, in_h]
     xyxy = xyxy * [out_w, out_h, out_w, out_h]
 
-    class_id = None
+    class_id = np.zeros_like(class_name, dtype=int)
 
     if classes is not None:
         mask = np.array([label in classes for label in class_name], dtype=bool)

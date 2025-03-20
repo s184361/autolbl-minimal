@@ -14,107 +14,89 @@ import supervision as sv
 
 from utils.core import Detections
 from utils.detection_base_model import DetectionBaseModel
-from autodistill.detection.detection_ontology import DetectionOntology
-
-class Qwen25VLModel(DetectionBaseModel):
-    """
-    Detection model powered by Qwen 2.5 VL (Vision-Language) model.
-    """
+from autodistill.helpers import load_image
+from autodistill.detection import (CaptionOntology,
+                                   DetectionTargetModel)
+from transformers import BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration, Qwen2_5_VLProcessor
+class Qwen25VL(DetectionBaseModel):
+    ontology: CaptionOntology
     
-    def __init__(
-        self,
-        ontology: DetectionOntology,
-        model_id_or_path: str = "Qwen/Qwen2.5-VL-7B-Instruct",
-        hf_token: Optional[str] = None,
-        device: str = "auto",
-        optimization_strategy: OptimizationStrategy = OptimizationStrategy.NONE,
-        prompt: str = "Outline the position of each defect and output all the coordinates in JSON format.",
-        system_message: Optional[str] = None,
-        max_new_tokens: int = 1024
-    ):
-        """
-        Initialize the Qwen 2.5 VL model for detection.
-        
-        Args:
-            ontology: The detection ontology to use
-            model_id_or_path: Model ID or path to the model weights
-            hf_token: Hugging Face token for downloading models
-            device: Device to use for inference ("auto", "cpu", "cuda", etc.)
-            optimization_strategy: Optimization strategy for the model
-            prompt: Prompt to use for detection
-            system_message: Optional system message to guide the model
-            max_new_tokens: Maximum number of tokens to generate
-        """
+    def __init__(self,ontology: CaptionOntology, hf_token: Optional[str] = None):
+        # Call the parent class's __init__ method
         super().__init__(ontology)
-        
+        min_pixels = 256 * 28 * 28
+        max_pixels = 1280 * 28 * 28
+        model_id_or_path = "Qwen/Qwen2.5-VL-7B-Instruct"
+        revision = "refs/heads/main"
+        trust_remote_code = True
+        cache_dir = None
+        device = "auto"
         if hf_token:
             os.environ["HF_TOKEN"] = hf_token
-            
         self.device = parse_device_spec(device)
-        self.prompt = prompt
-        self.system_message = system_message
-        self.max_new_tokens = max_new_tokens
-        
-        # Load the model and processor
-        self.processor, self.model = load_model(
-            model_id_or_path=model_id_or_path,
-            optimization_strategy=optimization_strategy
+        self.processor = Qwen2_5_VLProcessor.from_pretrained(
+            model_id_or_path,
+            revision=revision,
+            trust_remote_code=True,
+            cache_dir=cache_dir,
+            min_pixels=min_pixels,
+            max_pixels=max_pixels,
         )
-
-    def predict(self, input_image: Union[str, np.ndarray, Image.Image]) -> sv.Detections:
-        """
-        Run detection on the input image.
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            "Qwen/Qwen2.5-VL-7B-Instruct",
+            revision="refs/heads/main",
+            trust_remote_code=True,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
+            cache_dir=None,
+        )
+        self.model.to(self.device)
         
-        Args:
-            input_image: The input image path, numpy array, or PIL Image
+        self.max_new_tokens = 1024
+        self.system_message = None
+    
+    def predict(self, input: str, confidence: float = 0.5) -> sv.Detections:
+        image = load_image(input, return_format="PIL")
+        ontology_classes = self.ontology.classes()
 
-        Returns:
-            sv.Detections: Detection results
-        """
-        # Convert input to PIL Image if necessary
-        if isinstance(input_image, str):
-            image = Image.open(input_image)
-        elif isinstance(input_image, np.ndarray):
-            image = Image.fromarray(input_image)
-        else:
-            image = input_image
-        
-        # Get original image dimensions
+        PROMPT = "Outline the position of " + ", ".join(ontology_classes) + " and output all the coordinates in JSON format."
+        print(PROMPT)
         resolution_wh = image.size
+        response, input_wh = self.run_qwen_2_5_vl_inference(
+            image=image,
+            prompt=PROMPT
+        )
         
-        # Run inference
-        response, input_wh = self._run_inference(image)
-        
-        # Convert to Detections object
         detections = Detections.from_vlm(
             vlm="qwen_2_5_vl",
             result=response,
             input_wh=input_wh,
             resolution_wh=resolution_wh
         )
-        
+
+        if confidence > 0 and hasattr(detections, 'confidence') and detections.confidence is not None:
+            detections = detections[detections.confidence > confidence]
+        #print("last detection")
+        #print(detections)
         return detections
-    
-    def _run_inference(self, image: Image.Image) -> Tuple[str, Tuple[int, int]]:
-        """
-        Run inference with the Qwen 2.5 VL model.
-        
-        Args:
-            image: PIL Image to analyze
-            
-        Returns:
-            Tuple containing the model's response text and input dimensions
-        """
+
+    def run_qwen_2_5_vl_inference(
+        self,
+        image: Image.Image,
+        prompt: str,
+    ) -> Tuple[str, Tuple[int, int]]:
         conversation = format_conversation(
             image=image, 
-            prefix=self.prompt, 
+            prefix=prompt, 
             system_message=self.system_message
         )
+        
         text = self.processor.apply_chat_template(
             conversation, 
             tokenize=False, 
             add_generation_prompt=True
         )
+        
         image_inputs, _ = process_vision_info(conversation)
 
         inputs = self.processor(
@@ -123,17 +105,16 @@ class Qwen25VLModel(DetectionBaseModel):
             return_tensors="pt",
         )
 
-        # Calculate input dimensions
         input_h = inputs['image_grid_thw'][0][1] * 14
         input_w = inputs['image_grid_thw'][0][2] * 14
 
-        # Run prediction
+        # Don't pass the device parameter here - Accelerate handles it
         response = predict_with_inputs(
             **inputs,
             model=self.model,
             processor=self.processor,
-            device=self.device,
-            max_new_tokens=self.max_new_tokens
+            max_new_tokens=self.max_new_tokens,
+            device=self.device
         )[0]
 
         return response, (input_w, input_h)
