@@ -170,12 +170,21 @@ if __name__ == "__main__":
         labels = np.append(labels, np.ones(len(test_files)-len(labels)))
 
         # prepare good differences
-        good_prompt_emb = optimizer_good.base_model.embed_text(good_prompt)
+        #good_prompt_emb = optimizer_good.base_model.embed_text(good_prompt)
         if vectorized:
-            good_differences = [
-                optimizer_good.base_model.vec_difference(emb, good_prompt_emb)
-                for emb in optimizer_good.embs
-            ]
+            good_differences=[]
+            good_files = [f for f in os.listdir(good_img_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            good_files = [good_files[i] for i in indices]
+            good_prompt_emb = torch.zeros((len(good_files), 512))
+            for i in range(len(good_files)):
+                img_path = os.path.join(good_img_folder, good_files[i])
+                img = PIL.Image.open(img_path)
+                good_prompt=optimizer_good.optimize(
+                    maxiter=1000, optimizer="differential_evolution", img=img
+                    )
+                good_prompt_emb[i] = optimizer_good.base_model.embed_text(good_prompt)
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                good_differences.append(optimizer_good.base_model.vec_difference(optimizer_good.embs[i].to(device), good_prompt_emb[i].to(device)).cpu())
         else:
             good_differences = [
                 optimizer_good.base_model.difference(emb, good_prompt_emb)
@@ -202,7 +211,7 @@ if __name__ == "__main__":
 
                 # Calculate differences with broadcasting
                 diffs = torch.abs(bad_difference[i].unsqueeze(0) - good_diffs_stacked)
-                diff_test[i] = torch.max(diffs).item()
+                diff_test[i] = torch.median(diffs).item()#torch.max(diffs).item()
             else:
                 bad_difference[i] = optimizer_good.base_model.difference(emb, optimizer_good.base_model.embed_text(prompt_bad)).cpu()
                 diff_test[i] = np.max(np.abs(bad_difference[i] - np.array(good_differences)), axis=0)
@@ -250,4 +259,4 @@ if __name__ == "__main__":
             ax2.set_xlabel("True Label")
             ax2.set_xticklabels(["Good Test", "Bad Train", "Good Train"])
         ax2.set_title(bad_img_folder.split("/")[-1])
-        plt.savefig(f"results/{bad_img_folder.split('/')[-1]}_results_vectorized.png")
+        plt.savefig(f"results/{bad_img_folder.split('/')[-1]}_results_vectorized_ind_good_prpt_median.png")
