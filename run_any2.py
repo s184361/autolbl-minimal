@@ -10,7 +10,6 @@ from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 # from autodistill_grounding_dino import GroundingDINO
 from utils.grounding_dino_model import GroundingDINO
-from autodistill_florence_2 import Florence2
 try:
     from autodistill_florence_2 import Florence2
     #from autodistill_sam_hq.samhq_model import SAMHQ
@@ -289,8 +288,9 @@ def run_any_args(args):
         
         if len(dataset)<100:
             gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-            evaluate_detections(dataset, gt_dataset)
-            confusion_matrix, acc, map_result=compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+            confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
+            compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+            print("Confusion matrix:", confusion_matrix)
             TP = confusion_matrix[0][0]
             FP = confusion_matrix[0][1]
             FN = confusion_matrix[1][0]
