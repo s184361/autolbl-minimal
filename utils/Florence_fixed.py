@@ -93,18 +93,18 @@ class Florence2(DetectionBaseModel):
         image = load_image(input, return_format="PIL")
         ontology_classes = self.ontology.classes()
         ontology_prompts = self.ontology.prompts()
+        PROMPT ="and ".join(ontology_prompts) + "." #"A photo of " + ", and ".join(ontology_prompts) + "."
         result = run_example(
             "<CAPTION_TO_PHRASE_GROUNDING>",
             self.processor,
             self.model,
             image,
-            #"A photo of " + ", and ".join(ontology_prompts) + ".",
-            "and ".join(ontology_prompts) + ".",
+            PROMPT,
         )
-        print("A photo of " + ", and ".join(ontology_prompts) + ".")
+        print(PROMPT)
         results = result["<CAPTION_TO_PHRASE_GROUNDING>"]
         boxes_and_labels = list(zip(results["bboxes"], results["labels"]))
-
+        print(boxes_and_labels)
         if (
             len(
                 [
@@ -147,7 +147,6 @@ class Florence2(DetectionBaseModel):
         )
 
         detections = detections[detections.confidence > confidence]
-        print(detections)
         return detections
 
 
