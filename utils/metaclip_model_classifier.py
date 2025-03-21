@@ -94,3 +94,10 @@ class MetaCLIP(ClassificationBaseModel):
 
     def compare(self, embed1: torch.Tensor, embed2: torch.Tensor) -> float:
         return torch.cosine_similarity(embed1, embed2).item()
+
+    def difference(self, embed1: torch.Tensor, embed2: torch.Tensor) -> float:
+        return torch.dist(embed1, embed2).item()
+    
+    def vec_difference(self, embed1: torch.Tensor, embed2: torch.Tensor) -> torch.Tensor:
+        diff = torch.abs(embed1 - embed2)
+        return diff
