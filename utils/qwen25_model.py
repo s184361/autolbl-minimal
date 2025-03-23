@@ -60,7 +60,7 @@ class Qwen25VL(DetectionBaseModel):
         ontology_prompts = self.ontology.prompts()
 
         PROMPT = "Outline the position of the objects according to description '" + ", ".join(ontology_prompts) + ".' Output all the coordinates in JSON format."
-        print(PROMPT)
+        #print(PROMPT)
         resolution_wh = image.size
         response, input_wh = self.run_qwen_2_5_vl_inference(
             image=image,
