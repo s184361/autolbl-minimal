@@ -75,7 +75,7 @@ class MetaCLIP(ClassificationBaseModel):
         )
 
     def embed_image(self, input: str) -> torch.Tensor:
-        #image = Image.open(input)
+        # image = Image.open(input)
 
         inputs = self.preprocess(images=input, return_tensors="pt", padding=True).to(DEVICE)
         # inputs = self.preprocess(image).unsqueeze(0).to(DEVICE)
@@ -86,18 +86,26 @@ class MetaCLIP(ClassificationBaseModel):
             return outputs
 
     def embed_text(self, input: str) -> torch.Tensor:
-        inputs = self.tokenizer(input, return_tensors="pt", padding=True).to(DEVICE)
+        input = input.replace("##", " ")
+        try:
+            inputs = self.tokenizer(input, return_tensors="pt", padding=True).to(DEVICE)
+            with torch.no_grad():
+                outputs = self.model.get_text_features(**inputs)
+        except:
+            inputs = self.tokenizer(input, return_tensors="pt", padding=True)
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+                inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+                outputs = self.model.get_text_features(**inputs)
 
-        with torch.no_grad():
-            outputs = self.model.get_text_features(**inputs)
-            return outputs
+        return outputs
 
     def compare(self, embed1: torch.Tensor, embed2: torch.Tensor) -> float:
         return torch.cosine_similarity(embed1, embed2).item()
 
     def difference(self, embed1: torch.Tensor, embed2: torch.Tensor) -> float:
         return torch.dist(embed1, embed2).item()
-    
+
     def vec_difference(self, embed1: torch.Tensor, embed2: torch.Tensor) -> torch.Tensor:
         diff = torch.abs(embed1 - embed2)
         return diff
