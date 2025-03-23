@@ -62,8 +62,8 @@ echo "Running bnvtop $LSB_JOBID to monitor GPU usage"
 bnvtop $LSB_JOBID &
 
 clear_gpu
-python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=Florence --optimizer=ax --encoding_type=bert
-python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=DINO --optimizer=ax --encoding_type=bert
+python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=Florence --optimizer=ax --encoding_type=bert --initial_prompt="crack. wire. sharp. scratch. [PAD]."
+python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=DINO --optimizer=ax --encoding_type=bert --initial_prompt="crack. wire. sharp. scratch. [PAD]."
 
 #bsub -v "MODEL=Florence DINO" < opt_ax.sh
 

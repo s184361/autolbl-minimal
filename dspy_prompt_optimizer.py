@@ -89,8 +89,8 @@ class DSPyPromptOptimizer:
         # Default prompts list
         self.default_prompts = [
             "blue stain", "crack", "dead knot", 
-            "Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes."#, "knot missing", "knot with crack",
-            #"live knot", "marrow", "overgrown", "quartzity", "resin", "blue stain crack dead knot missing knot with crack live knot marrow overgrown quartzity resin"
+            "Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes.", "knot missing", "knot with crack",
+            "live knot", "marrow", "overgrown", "quartzity", "resin", "blue stain crack dead knot missing knot with crack live knot marrow overgrown quartzity resin"
         ]
         
         # Initialize prompt table for tracking results
@@ -193,6 +193,12 @@ class DSPyPromptOptimizer:
         
         # Use step to get basic metrics and dataset
         gt_class, TP, FP, FN, acc, F1, dataset = self.step(prompt, eval_metrics)
+        #Change to one class
+        dataset = self.set_one_class(dataset)
+        dataset.classes = ['defect']
+        #check if the classes are set to one class
+        if not self.check_classes(dataset):
+            print("Error: Classes are not set to one class")
         # Initialize tensors
         pred_bboxes = torch.empty(0, 4)
         pred_labels = torch.empty(0)
@@ -297,7 +303,7 @@ class DSPyPromptOptimizer:
         loss_giou = float(loss_output["loss_giou"])
         loss_bbox = float(loss_output["loss_bbox"])
         loss_class = float(loss_output['loss_class'])
-        total_loss = float(20 * loss_class + loss_bbox / 1000 + loss_giou)
+        total_loss = float(loss_class + loss_bbox / 1000 + loss_giou)
         
         wandb.log({
             "loss_giou": loss_giou,
@@ -489,7 +495,7 @@ class DSPyPromptOptimizer:
         
         return dspy_examples
     
-    def create_datasets(self, prompt_examples, train_k=5, dev_k=3):
+    def create_datasets(self, prompt_examples, train_k=2, dev_k=8):
         """
         Create training and development datasets with balanced examples
         """
@@ -602,6 +608,7 @@ class DSPyPromptOptimizer:
             self.program.deepcopy(),
             trainset=self.trainset,
             valset=self.devset,
+            requires_permission_to_run=False,
             )
 
         # Save optimized program for future use
@@ -675,7 +682,8 @@ class DSPyPromptOptimizer:
         
         # Prepare examples
         prompt_examples = self.prepare_examples(example_file)
-        
+        print("Prompt examples:")
+        print(prompt_examples)
         # Create datasets
         self.create_datasets(prompt_examples)
         

@@ -5,7 +5,7 @@
     "train": [],
     "demos": [],
     "signature": {
-      "instructions": "Design a prompt for a detection task. Don't use words like 'detect' or 'find'.\nDon't ask for a specific design or look. Use only nouns and adjectives.\nDon't ask for a detailed or precise detection. Don't use words like 'image', 'photo', 'picture'.\nDon't as questions like 'what is the defect?' or 'where is the defect?'.\nDon't use words like 'improved', 'better', 'design', 'look','identify', 'locate', 'find', 'detect', 'image', 'photo', 'picture', 'detailed','precise'.",
+      "instructions": "Analyze a stain of blue color and describe its characteristics, focusing on its color, concentration, and appearance. Use only nouns and adjectives, avoiding any words that suggest detection or analysis. Provide a concise overview.",
       "fields": [
         {
           "prefix": "Task:",

@@ -93,61 +93,58 @@ class Florence2(DetectionBaseModel):
         image = load_image(input, return_format="PIL")
         ontology_classes = self.ontology.classes()
         ontology_prompts = self.ontology.prompts()
+        PROMPT ="and ".join(ontology_prompts) + "." #"A photo of " + ", and ".join(ontology_prompts) + "."
         result = run_example(
             "<CAPTION_TO_PHRASE_GROUNDING>",
             self.processor,
             self.model,
             image,
-            #"A photo of " + ", and ".join(ontology_prompts) + ".",
-            "and ".join(ontology_prompts) + ".",
+            PROMPT,
         )
-        print("A photo of " + ", and ".join(ontology_prompts) + ".")
         results = result["<CAPTION_TO_PHRASE_GROUNDING>"]
         boxes_and_labels = list(zip(results["bboxes"], results["labels"]))
+        
+        # Split the ontology_prompts into individual labels
+        ontology_labels = [label.strip() for label in ontology_prompts[0].split('.') if label.strip()]
 
-        if (
-            len(
-                [
-                    box
-                    for box, label in boxes_and_labels
-                    if label in ontology_prompts and ontology_prompts
-                ]
-            )
-            == 0
-        ):
-            print(                [
-                    box
-                    for box, label in boxes_and_labels
-                    if label in ontology_prompts
-                ])
+        valid_detections = [
+            box
+            for box, label in boxes_and_labels
+            if label in ontology_labels
+        ]
+
+        if len(valid_detections) == 0 and len(ontology_classes) > 1:
+            print("No detections found or too many classes detected")
             return sv.Detections.empty()
+        
+        h, w = image.size
+        
+        # Filter boxes covering more than 95% of the image area
+        filtered_boxes = []
+        filtered_class_ids = []
+        filtered_confidences = []
+        
+        for box, label in boxes_and_labels:
+            # Correctly calculate box area: (x2-x1) * (y2-y1)
+            box_area = (box[2] - box[0]) * (box[3] - box[1])
+            image_area = h * w
+            
+            if box_area < 0.95 * image_area:
+                filtered_boxes.append(box)
+                filtered_class_ids.append(0)  # Using 0 as default class ID
+                filtered_confidences.append(1.0)
 
+        # Handle case when all boxes are filtered out
+        if not filtered_boxes:
+            return sv.Detections.empty()
+            
         detections = sv.Detections(
-            xyxy=np.array(
-                [
-                    box
-                    for box, label in boxes_and_labels
-                    if label in ontology_prompts
-                ]
-            ),
-            class_id=np.array(
-                [
-                    ontology_prompts.index(label)
-                    for box, label in boxes_and_labels
-                    if label in ontology_prompts
-                ]
-            ),
-            confidence=np.array(
-                [
-                    1.0
-                    for box, label in boxes_and_labels
-                    if label in ontology_prompts
-                ]
-            ),
+            xyxy=np.array(filtered_boxes),
+            class_id=np.array(filtered_class_ids),
+            confidence=np.array(filtered_confidences),
         )
 
         detections = detections[detections.confidence > confidence]
-        print(detections)
         return detections
 
 
