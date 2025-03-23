@@ -5,7 +5,7 @@
 
 echo "Starting submission of 10 jobs..."
 
-for i in {1..10}
+for i in {1..5}
 do
   echo "Submitting job $i of 10..."
   bsub < /zhome/4a/b/137804/Desktop/autolbl/opt_ax.sh
