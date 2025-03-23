@@ -102,6 +102,9 @@ class PromptOptimizer:
                     self.input_ids[random.randint(0, len(self.input_ids)-1)] = random.randint(0, len(self.tokenizer))
                 
         self.ax_client = AxClient()
+        self.run_url = (
+            f"https://wandb.ai/{self.run.entity}/{self.run.project}/runs/{self.run.id}"
+        )
         print("Initial prompt:", self.decode_prompt(self.input_ids), self.input_ids)
 
     @staticmethod
@@ -154,6 +157,11 @@ class PromptOptimizer:
             save_images=False
         )
         dataset = run_any_args(args)
+        #set one class
+        dataset = self.set_one_class(dataset)
+        #check classes
+        if not self.check_classes(dataset):
+            raise ValueError("Dataset classes are incorrect")
         if eval_metrics:
             confusion_matrix, acc, _ = evaluate_detections(dataset, self.gt_dataset)
             acc = acc[0]
@@ -223,9 +231,21 @@ class PromptOptimizer:
             })
             
             #update the prompt table
-            new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], "loss_giou": [1000.0], "bbox_loss": [1000.0], "class_loss": [1000.0]})
+            new_row = pd.DataFrame({'prompt': [prompt],
+                                    'TP': [TP],
+                                    'FP': [FP],
+                                    'FN': [FN],
+                                    'acc': [acc],
+                                    'F1': [F1],
+                                    'total_loss': [total_loss],
+                                    "loss_giou": [1000.0],
+                                    "bbox_loss": [5000.0],
+                                    "class_loss": [1000.0],
+                                    "run_url": [wandb.Html(f"<a href='{self.run_url}'>{self.run.id}</a>")]})
             self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
-            wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
+            wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table.applymap(
+                lambda x: torch.tensor(x) if isinstance(x, (int, float)) else x
+            ))})
             
             return gt_class, TP, FP, FN, acc, F1, dataset, float(total_loss), prompt
             
@@ -267,10 +287,23 @@ class PromptOptimizer:
         })
 
         #update the prompt table
-        new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], "loss_giou": [loss_output["loss_giou"]], "bbox_loss": [loss_output["loss_bbox"]], "class_loss": [loss_output['loss_class']]})
+        new_row = pd.DataFrame({'prompt': [prompt],
+                                'TP': [TP],
+                                'FP': [FP],
+                                'FN': [FN],
+                                'acc': [acc],
+                                'F1': [F1],
+                                'total_loss': [total_loss],
+                                "loss_giou": [loss_output["loss_giou"]],
+                                "bbox_loss": [loss_output["loss_bbox"]],
+                                "class_loss": [loss_output['loss_class']],
+                                "run_url": [wandb.Html(f"<a href='{self.run_url}'>{self.run.id}</a>")]})
+                                 
         self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
         #upload the prompt table to wandb
-        wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
+        wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table.applymap(
+            lambda x: torch.tensor(x) if isinstance(x, (int, float)) else x
+        ))})
         return gt_class, TP, FP, FN, acc, F1, dataset, total_loss, prompt
 
     def objective(self, x_np):
@@ -280,7 +313,7 @@ class PromptOptimizer:
             eval_metrics=True
         )
         print(f"Loss: {loss}, Prompt: {prompt}")
-        return F1#float(loss)  # Ensure we return a Python float, not a tensor
+        return -F1#float(loss)  # Ensure we return a Python float, not a tensor
 
     def optimize(self):
         # Define the length of our prompt
@@ -367,4 +400,3 @@ if __name__ == "__main__":
         wandb.finish()
         torch.cuda.empty_cache()
 
-        

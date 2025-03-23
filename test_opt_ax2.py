@@ -16,15 +16,16 @@ from utils.wandb_utils import compare_plot as compare_wandb_plot
 
 from ax.service.ax_client import AxClient, ObjectiveProperties
 
+
 def prase_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_trials', type=int, default=1)
     parser.add_argument('--config', type=str, default='config.json')
     
     parser.add_argument('--randomize', type=bool, default=False)
-    parser.add_argument('--initial_prompt', type=str, default='[PAD] [PAD]')
-    parser.add_argument('--ds_name', type=str, default='tires')
-    parser.add_argument('--model', type=str, default='DINO')
+    parser.add_argument('--initial_prompt', type=str, default='color. hole. liquid. scratch. [PAD].')
+    parser.add_argument('--ds_name', type=str, default='wood')
+    parser.add_argument('--model', type=str, default='Florence')
     parser.add_argument('--optimizer', type=str, default='ax')
     parser.add_argument('--encoding_type', type=str, default='bert')
     return parser.parse_args()
@@ -54,7 +55,10 @@ class PromptOptimizer:
               f"randomize={self.randomize}", f"[{self.initial_prompt}]", f"encoding={self.encoding_type}"]
         self.pd_prompt_table = pd.DataFrame()
 
-        self.run = wandb.init(project="prompt_opt_exp_acc", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
+        self.run = wandb.init(project="prompt_opt_exp_multiobj", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
+        self.run_url = (
+            f"https://wandb.ai/{self.run.entity}/{self.run.project}/runs/{self.run.id}"
+        )
         self.run.config.update({
             "model": self.model,
             "dataset": self.ds_name,
@@ -209,7 +213,7 @@ class PromptOptimizer:
             total_loss = torch.tensor(3000.0)  # High default loss value
             wandb.log({
                 "loss_giou": 1000.0,
-                "bbox loss": 1000.0,
+                "bbox loss": 10000.0,
                 "class loss": 1000.0,
                 "total loss": total_loss,
                 "TP": TP,
@@ -223,11 +227,15 @@ class PromptOptimizer:
             })
             
             #update the prompt table
-            new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'error': ['Empty tensors'], 'total_loss': [total_loss], 'bbox_loss': [1000.0], 'class_loss': [1000.0], 'giou_loss': [1000.0]})
+            new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'error': ['Empty tensors'], 'total_loss': [total_loss], 'bbox_loss': [1000.0], 'class_loss': [1000.0], 'giou_loss': [1000.0], "run_url": [wandb.Html(f"<a href='{self.run_url}'>{self.run.id}</a>")]})
             self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
             wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
-            
-            return gt_class, TP, FP, FN, acc, F1, dataset, float(total_loss), prompt
+            loss_output = {
+                "loss_giou": 1000.0,
+                "loss_bbox": 1000.0,
+                "loss_class": 1000.0
+            }
+            return gt_class, TP, FP, FN, acc, F1, dataset, loss_output, prompt
             
         # Original code continues if tensors are not empty
         if len(pred_scores) == 0:
@@ -267,20 +275,27 @@ class PromptOptimizer:
         })
 
         #update the prompt table
-        new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], 'bbox_loss': [loss_output['loss_bbox']], 'class_loss': [loss_output['loss_class']], 'giou_loss': [loss_output['loss_giou']]})
+        new_row = pd.DataFrame({'prompt': [prompt], 'TP': [TP], 'FP': [FP], 'FN': [FN], 'acc': [acc], 'F1': [F1], 'total_loss': [total_loss], 'bbox_loss': [loss_output['loss_bbox']], 'class_loss': [loss_output['loss_class']], 'giou_loss': [loss_output['loss_giou']], "run_url": [wandb.Html(f"<a href='{self.run_url}'>{self.run.id}</a>")]})
         self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
         #upload the prompt table to wandb
         wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
-        return gt_class, TP, FP, FN, acc, F1, dataset, total_loss, prompt
+        return gt_class, TP, FP, FN, acc, F1, dataset, loss_output, prompt
 
     def objective(self, x_np):
         x_tensor = torch.tensor(x_np, dtype=torch.float32, requires_grad=True)
-        gt_class, TP, FP, FN, acc, F1, dataset, loss, prompt = self.loss2(
+        _, _, _, _, _, F1, _, loss, prompt = self.loss2(
             input_ids=x_tensor,
             eval_metrics=True
         )
-        print(f"Loss: {loss}, Prompt: {prompt}")
-        return float(F1)  # Ensure we return a Python float, not a tensor
+        print(loss)
+        print(f"Losses - gIoU: {loss['loss_giou']:.4f}, bbox: {loss['loss_bbox']:.4f}, F1: {F1:.4f}, Prompt: {prompt}")
+        
+        # For multi-objective, return all metrics
+        return {
+            "giou_loss": float(loss["loss_giou"]),
+            "bbox_loss": float(loss["loss_bbox"]),  # Normalize as in loss2 function
+            "f1_score": float(F1)  # F1 is better when higher
+        }
 
     def optimize(self):
         # Define the length of our prompt
@@ -304,32 +319,36 @@ class PromptOptimizer:
         # Import necessary Ax components for custom generation strategy
         from ax.modelbridge.registry import Models
         from ax.modelbridge.generation_strategy import GenerationStrategy, GenerationStep
+        from ax.service.utils.instantiation import ObjectiveProperties
         
         # Create a proper generation strategy with Thompson Sampling
         generation_strategy = GenerationStrategy(
-            name="Sobol+Thompson_Sampling",
+            name="Sobol+BOTORCH_MODULAR",
             steps=[
                 GenerationStep(
                     model=Models.SOBOL,
-                    num_trials=99,  # Use 5 trials of Sobol for initial exploration
+                    num_trials=10,  # Use more Sobol trials for initial exploration in multi-objective space
                     min_trials_observed=5,
                     enforce_num_trials=True,
                 ),
                 GenerationStep(
-                    model=Models.EMPIRICAL_BAYES_THOMPSON,  # Use Thompson Sampling for exploitation
+                    model=Models.BOTORCH_MODULAR,  # Use BOTORCH_MODULAR for multi-objective optimization
                     num_trials=-1,  # -1 means unlimited trials
                     max_parallelism=1,  # Process trials sequentially
-                    model_kwargs={"min_weight": 0.0}  # Control exploration vs exploitation
                 ),
             ],
         )
         
-        # Create experiment with our custom generation strategy
+        # Create experiment with multi-objective optimization
         self.ax_client = AxClient(generation_strategy=generation_strategy)
         self.ax_client.create_experiment(
             name="prompt_optimization",
             parameters=parameters,
-            objectives={"loss": ObjectiveProperties(minimize=True)},
+            objectives={
+                "giou_loss": ObjectiveProperties(minimize=True),
+                "bbox_loss": ObjectiveProperties(minimize=True),
+                "f1_score": ObjectiveProperties(minimize=False)  # We want to maximize F1
+            },
         )
         
         # Create initial parameter dictionary with each token position
@@ -340,12 +359,14 @@ class PromptOptimizer:
         # Attach the initial trial
         self.ax_client.attach_trial(parameters=initial_params)
 
-        # Complete the initial trial
+        # Complete the initial trial with multi-objective evaluation
+        initial_evaluation = self.objective(self.input_ids)
         self.ax_client.complete_trial(
             trial_index=0,
-            raw_data={"loss": self.objective(self.input_ids)}
+            raw_data=initial_evaluation
         )
         
+        # Run optimization iterations
         for i in range(self.run.config.maxiter):
             parameters, trial_index = self.ax_client.get_next_trial()
             self.ax_client.complete_trial(
@@ -359,12 +380,12 @@ class PromptOptimizer:
         for i in range(len(parameterization)):
             x_np.append(parameterization[f"char_{i}"])
         
-        # Make sure we return a native Python float, not a tensor
-        loss_value = self.objective(x_np)
-        return {"loss": float(loss_value)}
+        # Get all objectives and return them
+        result = self.objective(x_np)
+        return result
 
 
-
+# In the main section, modify the evaluation of best parameters
 if __name__ == "__main__":
     args = prase_args()
     n_trials = args.n_trials
@@ -380,13 +401,27 @@ if __name__ == "__main__":
             initial_prompt=args.initial_prompt
         )
         optimizer.optimize()
-        optimizer.ax_client.get_trials_data_frame()
-        #get best parameters
-        best_parameters, values = optimizer.ax_client.get_best_parameters()
-        print(f"Best parameters: {best_parameters}")
-        #run evaluate with best parameters
+        
+        # Get Pareto frontier
+        df = optimizer.ax_client.get_trials_data_frame()
+        print("Pareto frontier solutions:")
+        print(df[["trial_index", "giou_loss", "bbox_loss", "f1_score", "params"]])
+        
+        # We can select the best parameters based on a weighted preference or specific objective
+        # Here we'll select based on F1 score
+        best_f1_idx = df["f1_score"].idxmax()
+        best_params = df.loc[best_f1_idx, "params"]
+        print(f"Best parameters by F1 score: {best_params}")
+        
+        # Evaluate with best parameters
         optimizer.best_accuracy = True
-        optimizer.loss2(torch.tensor([best_parameters[f"char_{i}"] for i in range(len(best_parameters))]))
+        best_param_list = [best_params[f"char_{i}"] for i in range(len(best_params))]
+        optimizer.loss2(torch.tensor(best_param_list))
+        
+        # Visualize Pareto frontier if wandb supports it
+        wandb.log({
+            "pareto_data": wandb.Table(dataframe=df[["trial_index", "giou_loss", "bbox_loss", "f1_score"]])
+        })
         
         wandb.finish()
         torch.cuda.empty_cache()
