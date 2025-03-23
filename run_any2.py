@@ -10,10 +10,12 @@ from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 # from autodistill_grounding_dino import GroundingDINO
 from utils.grounding_dino_model import GroundingDINO
+from utils.Florence_fixed import Florence2
 try:
-    from autodistill_florence_2 import Florence2
+    #from autodistill_florence_2 import Florence2
     #from autodistill_sam_hq.samhq_model import SAMHQ
     #from utils.metaclip_model import MetaCLIP
+    pass
 except:
     pass
 from utils.composed_detection_model import ComposedDetectionModel2
@@ -291,12 +293,12 @@ def run_any_args(args):
             confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
             compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
             print("Confusion matrix:", confusion_matrix)
-            TP = confusion_matrix[0][0]
-            FP = confusion_matrix[0][1]
-            FN = confusion_matrix[1][0]
-            TN = confusion_matrix[1][1]
+            TP = confusion_matrix[0][0]/confusion_matrix.sum()
+            FP = confusion_matrix[0][1]/confusion_matrix.sum()
+            FN = confusion_matrix[1][0]/confusion_matrix.sum()
+            TN = confusion_matrix[1][1]/confusion_matrix.sum()
             F1 = 2*TP/(2*TP+FP+FN)
-            wandb.log({"F1": F1, "TP": TP, "FP": FP, "FN": FN, "TN": TN, "Accuracy": acc, "MAP": map_result})
+            wandb.log({"F1": F1, "TP": TP, "FP": FP, "FN": FN, "TN": TN, "Accuracy": acc})
             wandb.finish()
     return dataset
 
