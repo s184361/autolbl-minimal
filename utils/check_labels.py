@@ -672,10 +672,19 @@ def summarize_annotation_distributions(gt_dataset):
     for class_name, count in summary["class_distribution"].items():
         print(f"{class_name}: {count}")
     return summary
-def classificaiton_table(
-        dataset,
-        gt_dataset):
-    "creates wandb table"
+
+def set_one_class(gt_dataset):
+    for key in gt_dataset.annotations.keys():
+        gt_dataset.annotations[key].class_id = np.zeros_like(gt_dataset.annotations[key].class_id)
+    gt_dataset.classes = ['defect']
+    return gt_dataset
+
+def check_classes(gt_dataset):
+    for key in gt_dataset.annotations.keys():
+        for i in range(len(gt_dataset.annotations[key])):
+            if gt_dataset.annotations[key][i].class_id != len(gt_dataset.classes) - 1:
+                return False
+    return True
 def main():
     import config as config
     """

@@ -7,19 +7,10 @@ import cv2
 import supervision as sv
 import matplotlib.pyplot as plt
 from utils.check_labels import *
-from autodistill.detection import CaptionOntology
+
 # from autodistill_grounding_dino import GroundingDINO
-from utils.grounding_dino_model import GroundingDINO
-from utils.Florence_fixed import Florence2
-try:
-    from utils.qwen25_model import Qwen25VL
-    #from autodistill_sam_hq.samhq_model import SAMHQ
-    #from utils.metaclip_model import MetaCLIP
-except:
-    pass
-from utils.composed_detection_model import ComposedDetectionModel2
-from utils.detection_base_model import DetectionBaseModel
-from utils.embedding_ontology import EmbeddingOntologyImage
+from utils.Florence_fixed import Florence2Prompt
+
 from utils.wandb_utils import compare_plot as compare_wandb
 import wandb
 def parse_arguments():
@@ -54,7 +45,7 @@ def run_any_args(args,loaded_model=None):
     # Initialize wandb
     if args.wandb:
         wandb.login()
-        wandb.init(project="Qwen", name=f"{args.model}_{args.tag}", tags=[args.tag])
+        wandb.init(project="Florence_prompt_backprop", name=f"{args.model}_{args.tag}", tags=[args.tag])
 
     # Reset folders
     try:
@@ -88,8 +79,7 @@ def run_any_args(args,loaded_model=None):
         names = re.findall(r"name=([^\n]+)", content)
         names = sorted([name.lower().replace("_", " ") for name in names])
         ont_list = {name: name for name in names}
-        ont_list = {"defect": "defect"}
-        print(ont_list)
+
         """
         ont_list =ont_list = {
         "wood defect": "defect",
@@ -204,47 +194,7 @@ def run_any_args(args,loaded_model=None):
         print(args.ontology)
         print(ont_list)
     # Initialize the model
-    if args.model == "DINO":
-        base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
-    elif args.model == "Florence":
-        base_model = Florence2(ontology=CaptionOntology(ont_list))
-    elif args.model == "SAMHQ":
-        base_model = SAMHQ(CaptionOntology(ontology=ont_list))
-    elif args.model == "Combined":
-        detection_model = GroundingDINO(ontology=CaptionOntology({config["PROMPT"]: "defect"}))
-        classification_model = MetaCLIP(ontology=CaptionOntology(ont_list))
-        base_model = ComposedDetectionModel2(detection_model=detection_model, classification_model=classification_model)
-    elif args.model == "Combined2":
-        detection_model = Florence2(ontology=CaptionOntology({config["PROMPT"]: "defect"}))
-        classification_model = MetaCLIP(ontology=CaptionOntology(ont_list))
-        base_model = ComposedDetectionModel2(detection_model=detection_model, classification_model=classification_model)
-    elif args.model == "MetaCLIP":
-        HOME2 = os.getcwd()
-        images_to_classes = {
-            os.path.join(f"{HOME2}/croped_images", "100000010_live knot.jpg"): "knot",
-            os.path.join(f"{HOME2}/croped_images", "100000009_dead knot.jpg"): "knot",
-            os.path.join(f"{HOME2}/croped_images", "knot missing.jpg"): "knot missing",
-            os.path.join(f"{HOME2}/croped_images", "100000034_knot with crack.jpg"): "knot with crack",
-            os.path.join(f"{HOME2}/croped_images", "100000074_crack.jpg"): "crack",
-            os.path.join(f"{HOME2}/croped_images", "100000000_quartzity.jpg"): "quartzity",
-            os.path.join(f"{HOME2}/croped_images", "100000013_resin.jpg"): "resin",
-            os.path.join(f"{HOME2}/croped_images", "100000002_marrow.jpg"): "marrow",
-            os.path.join(f"{HOME2}/croped_images", "overgrown.jpg"): "overgrown",
-            os.path.join(f"{HOME2}/croped_images", "blue stain.jpg"): "blue stain"
-        }
-        # Create embedding ontology and models
-        images_to_classes = dict(sorted(images_to_classes.items(), key=lambda item: item[1]))
-        img_emb = EmbeddingOntologyImage(images_to_classes)
-        base_model = MetaCLIP(img_emb)
-    elif loaded_model is not None:
-        ("Using loaded model")
-        base_model = loaded_model
-        #update the ontology
-        base_model.ontology = CaptionOntology(ont_list) 
-    elif args.model == "Qwen":
-        print("Load Qwen model")
-        base_model = Qwen25VL(ontology=CaptionOntology(ont_list),hf_token="os.getenv("HF_TOKEN", "")")
-
+    base_model = Florence2Prompt(initial_prompt=args.ontology)
     # Log model settings
     try:
         wandb.config.update({
@@ -257,11 +207,13 @@ def run_any_args(args,loaded_model=None):
         table = wandb.Table(columns=["prompt", "caption"])
         for key, value in ont_list.items():
             table.add_data(key, value)
-        # Log the table
-        #wandb.log({"Prompt Table": table})
     except:
         print("No wandb")
 
+    # Load the dataset
+    gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=2)
+    #label the dataset
     dataset = base_model.label(
         input_folder=config['IMAGE_DIR_PATH'],
         extension=".jpg",
@@ -269,16 +221,8 @@ def run_any_args(args,loaded_model=None):
         sahi=args.sahi,
         save_images=args.save_images
     )
-    # check if the dataset is empty
-    if len(dataset) == 0:
 
-        dataset = base_model.label(
-            input_folder=config['IMAGE_DIR_PATH'],
-            extension=".png",
-            output_folder=config['DATASET_DIR_PATH'],
-            sahi=args.sahi,
-            save_images=args.save_images
-        )
+    print("Final prompt:", final_prompt)
     if args.reload:
         dataset = sv.DetectionDataset.from_yolo(
             images_directory_path=config['IMAGES_DIRECTORY_PATH'],
@@ -330,7 +274,7 @@ def main():
     args = parse_arguments()
     #set section to work3_tires
     args.section = "wood"
-    args.ontology = "pumps tensed oceanuses [unused810] [unused368] bombay wavelengthsctuseriantlanurianbant yells"
+    args.ontology = "defect"
 
     run_any_args(args)
 if __name__ == "__main__":

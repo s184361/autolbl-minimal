@@ -35,6 +35,18 @@ def parse_arguments():
     parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
     parser.add_argument('--save_images', type=bool, default=True, help='Save images for destillation')
     return parser.parse_args()
+def set_one_class(gt_dataset):
+    for key in gt_dataset.annotations.keys():
+        gt_dataset.annotations[key].class_id = np.zeros_like(gt_dataset.annotations[key].class_id)
+    gt_dataset.classes = ['defect']
+    return gt_dataset
+
+def check_classes(gt_dataset):
+    for key in gt_dataset.annotations.keys():
+        for i in range(len(gt_dataset.annotations[key])):
+            if gt_dataset.annotations[key][i].class_id != len(gt_dataset.classes) - 1:
+                return False
+    return True
 
 def run_any_args(args):
     # Load configuration
@@ -290,8 +302,11 @@ def run_any_args(args):
         
         if len(dataset)<100:
             gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
+            dataset = set_one_class(dataset)
+            gt_dataset = set_one_class(gt_dataset)
+            print(check_classes(dataset))
+            print(check_classes(gt_dataset))
             confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
-            compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
             print("Confusion matrix:", confusion_matrix)
             TP = confusion_matrix[0][0]/confusion_matrix.sum()
             FP = confusion_matrix[0][1]/confusion_matrix.sum()
@@ -299,13 +314,17 @@ def run_any_args(args):
             TN = confusion_matrix[1][1]/confusion_matrix.sum()
             F1 = 2*TP/(2*TP+FP+FN)
             wandb.log({"F1": F1, "TP": TP, "FP": FP, "FN": FN, "TN": TN, "Accuracy": acc})
+            compare_wandb(dataset, gt_dataset, results_dir=config.get('RESULTS_DIR_PATH', 'results'))
+
             wandb.finish()
     return dataset
 
 def main():
     args = parse_arguments()
     #set section to work3_tires
-    args.section = "tires"
+    args.section = "wood"
+    args.model = "Florence"
+    args.ontology = "remaining clarinet bullets facilitatesaging episodes jessegging fisher glacier œ"
     run_any_args(args)
 if __name__ == "__main__":
     main() 

@@ -74,6 +74,12 @@ class Qwen25VL(DetectionBaseModel):
             resolution_wh=resolution_wh
         )
 
+        # Add this: Ensure all detections have class_id set
+        if hasattr(detections, 'class_id') and (detections.class_id is None or len(detections.class_id) == 0):
+            if hasattr(detections, 'xyxy') and detections.xyxy is not None:
+                # Set all detections to class 0 ("defect")
+                detections.class_id = np.zeros(len(detections.xyxy), dtype=int)
+
         if confidence > 0 and hasattr(detections, 'confidence') and detections.confidence is not None:
             detections = detections[detections.confidence > confidence]
         #print("last detection")

@@ -5,7 +5,7 @@
     "train": [],
     "demos": [],
     "signature": {
-      "instructions": "Analyze a stain of blue color and describe its characteristics, focusing on its color, concentration, and appearance. Use only nouns and adjectives, avoiding any words that suggest detection or analysis. Provide a concise overview.",
+      "instructions": "\u201cDescribe the surface with two circular holes in detail, focusing on the hole's color, texture, and any visible dirt or grime. Use only nouns and adjectives. Avoid using words like 'detect', 'find', 'image', 'photo', 'picture', 'detailed', 'precise', 'identify', 'locate', 'find', 'detect', 'image', 'photo', 'picture', 'detailed', 'precise'.",
       "fields": [
         {
           "prefix": "Task:",

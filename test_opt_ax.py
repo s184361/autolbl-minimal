@@ -54,7 +54,7 @@ class PromptOptimizer:
               f"randomize={self.randomize}", f"[{self.initial_prompt}]", f"encoding={self.encoding_type}"]
         self.pd_prompt_table = pd.DataFrame()
 
-        self.run = wandb.init(project="prompt_opt_exp_F1", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
+        self.run = wandb.init(project="prompt_opt_exp_acc", job_type=self.optimizer, tags=tags, group=self.ds_name, name=self.model)
         self.run.config.update({
             "model": self.model,
             "dataset": self.ds_name,
@@ -313,7 +313,7 @@ class PromptOptimizer:
             eval_metrics=True
         )
         print(f"Loss: {loss}, Prompt: {prompt}")
-        return -F1#float(loss)  # Ensure we return a Python float, not a tensor
+        return -acc#-F1#float(loss)  # Ensure we return a Python float, not a tensor
 
     def optimize(self):
         # Define the length of our prompt
