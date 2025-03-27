@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
 # Add at the beginning of your script
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+#os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 class PromptOptimizer:
     def __init__(self, img_folder, initial_prompt="wood defects irregularities", indices=None):
@@ -189,7 +189,8 @@ def evaluate_metric(metric_values, true_labels):
 
 
 if __name__ == "__main__":
-    path = "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl"
+    print("Starting...")
+    path = "/zhome/4a/b/137804/Desktop/autolbl"
     indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     vectorized = True
     for bad_fldr in ["color","combined", "good", "hole", "liquid","scratch"]:
@@ -252,7 +253,7 @@ if __name__ == "__main__":
             img = PIL.Image.open(img_path)
             emb = optimizer_good.base_model.embed_image(img)
             prompt_bad = optimizer_good.optimize(
-                maxiter=1000, optimizer="differential_evolution", img=img
+                maxiter=100, optimizer="differential_evolution", img=img
             )
             if vectorized:
                 bad_difference[i] = optimizer_good.base_model.vec_difference(emb, optimizer_good.base_model.embed_text(prompt_bad)).cpu()
@@ -377,7 +378,7 @@ if __name__ == "__main__":
                 ax.boxplot([metric[labels == 0], metric[labels == 1], mLOO], positions=[0, 1, 2])
                 ax.set_ylabel(f"{title} Difference")
                 ax.set_xlabel("True Label")
-                ax.set_xticklabels(["Good Test", "Bad Test", "Good Train LLO"])
+                ax.set_xticklabels(["Good Test", "Bad Test", "Good Train L0O"])
 
                 # Calculate performance metrics
                 metric_eval = evaluate_metric(metric, labels)
