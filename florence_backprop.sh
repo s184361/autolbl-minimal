@@ -3,13 +3,13 @@
 ### –- specify queue --
 #BSUB -q gpua100
 ### -- set the job Name --
-#BSUB -J opt_ax_wood_bert_pad_rand
+#BSUB -J fl_backprop
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 4
 ### -- Select the resources: 1 gpu in exclusive process mode --
 #BSUB -gpu "num=1:mode=exclusive_process"
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
-#BSUB -W 3:00
+#BSUB -W 24:00
 # request 5GB of system-memory
 #BSUB -R "rusage[mem=4GB]"
 ### -- set the email address --
@@ -62,8 +62,6 @@ echo "Running bnvtop $LSB_JOBID to monitor GPU usage"
 bnvtop $LSB_JOBID &
 
 clear_gpu
-python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=wood --model=Florence --optimizer=ax --encoding_type=bert --initial_prompt="[PAD]. [PAD]. defect. [PAD]. [PAD]. [PAD]."
-python test_opt_ax.py --n_trials=1 --randomize=False --ds_name=bottle --model=DINO --optimizer=ax --encoding_type=bert --initial_prompt="[PAD]. [PAD]. defect. [PAD]. [PAD]. [PAD]."
-
+python prompt_Florence.py --ontology="paint. hole. liqud. water. scratch"
 #bsub -v "MODEL=Florence DINO" < opt_ax.sh
 
