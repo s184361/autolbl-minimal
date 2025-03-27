@@ -73,12 +73,13 @@ class DSPyPromptOptimizer:
                                  "use_detr_loss": self.use_detr_loss
                              },
                              tags=tags)
-        
+        self.run_url = self.run.get_url()
         # Load configuration
         with open(config_path, 'r') as f:
             self.config = json.load(f)
         
-        # Setup language model
+        # Setup language model - make sure server is running first
+        self.ensure_ollama_server()
         self.lm = dspy.LM(lm_model, api_base="http://localhost:11434", api_key="")
         dspy.configure(lm=self.lm)
         
@@ -88,9 +89,10 @@ class DSPyPromptOptimizer:
         self.check_classes(self.gt_dataset)
         # Default prompts list
         self.default_prompts = [
-            "blue stain", "crack", "dead knot", 
-            "Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes.", "knot missing", "knot with crack",
-            "live knot", "marrow", "overgrown", "quartzity", "resin", "blue stain crack dead knot missing knot with crack live knot marrow overgrown quartzity resin"
+            "Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes.",
+            "blue. stain. crack. dead knot. missing knot. knot with crack. live knot. marrow. overgrown. quartzity. resin",
+            "paint. hole. liqud. water. scratch",
+            "broken small. broken large. contamination."
         ]
         
         # Initialize prompt table for tracking results
@@ -108,7 +110,7 @@ class DSPyPromptOptimizer:
         self.trainset = None
         self.devset = None
         self.optimized_program = None
-        
+
         print(f"Initialized DSPyPromptOptimizer with model {self.model} for dataset {self.ds_name}, DETR loss: {self.use_detr_loss}")
         
     def load_gt_dataset(self):
@@ -142,6 +144,9 @@ class DSPyPromptOptimizer:
         Label images using the provided prompt and evaluate against ground truth.
         Returns metrics for the prompt's performance.
         """
+        #remove "" from prompt
+        prompt = prompt.replace('"','')
+        
         # Create the arguments
         args = argparse.Namespace(
             config=self.config_path,
@@ -150,7 +155,7 @@ class DSPyPromptOptimizer:
             tag="default",
             sahi=False,
             reload=False,
-            ontology=f"{prompt}: defect",
+            ontology=f"{prompt}",
             wandb=False,
             save_images=False,
         )
@@ -264,8 +269,9 @@ class DSPyPromptOptimizer:
                 'loss_giou': [loss_giou],
                 'loss_bbox': [loss_bbox],
                 'loss_class': [loss_class],
-                'error': ['Empty tensors']
-            })
+                'error': ['Empty tensors'],
+                "run_url": [wandb.Html(f"<a href='{self.run_url}'>{self.run.id}</a>")]})
+            
             self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
             
             # Log updated table to wandb
@@ -344,6 +350,9 @@ class DSPyPromptOptimizer:
         Metric function to evaluate the output of the program.
         Returns either F1 score or negative DETR loss based on configuration.
         """
+        # Ensure Ollama server is running before processing
+        self.ensure_ollama_server()
+        
         print(f"Example: {example}")
         print(f"Prediction: {pred}")
         print(f"Trace: {trace}")
@@ -377,6 +386,7 @@ class DSPyPromptOptimizer:
         
         # Return either F1 or negative loss as the optimization metric
         print(f"Metric value: {metric_value}")
+        self.ensure_ollama_server()
         return metric_value
     
     def prepare_examples(self, example_file="prompt_examples_small.csv"):
@@ -509,9 +519,10 @@ class DSPyPromptOptimizer:
         
         print(f"Created training set with {len(trainset)} examples and dev set with {len(devset)} examples")
         
-        self.trainset = trainset
+        #self.trainset = trainset
         self.devset = devset
-        return trainset, devset
+        self.trainset = devset
+        return devset, devset
     
     def step(self, prompt, eval_metrics=True):
         """
@@ -587,29 +598,21 @@ class DSPyPromptOptimizer:
         print("Optimizing program with MIPROv2...")
         teleprompter = MIPROv2(
             metric=self.metric_function,
-            auto="medium",
+            auto="light",
             max_bootstrapped_demos=0,
             max_labeled_demos=0,
             num_threads=1
         )
-        """
-        teleprompter = dspy.COPRO(
-         metric=self.metric_function,
-         prompt_model=self.lm,   
-        )
-        """
+
         kwargs = dict(num_threads=64, display_progress=True, display_table=0) # Used in Evaluate class in the optimization process
 
-        # Compile optimized program
-        if isinstance(teleprompter, dspy.COPRO):
-            self.optimized_program = teleprompter.compile(self.program.deepcopy(), trainset=self.trainset, eval_kwargs=kwargs)
-        else:
-            self.optimized_program = teleprompter.compile(
-            self.program.deepcopy(),
-            trainset=self.trainset,
-            valset=self.devset,
-            requires_permission_to_run=False,
-            )
+
+        self.optimized_program = teleprompter.compile(
+        self.program.deepcopy(),
+        trainset=self.trainset,
+        valset=self.devset,
+        requires_permission_to_run=False,
+        )
 
         # Save optimized program for future use
         mode = "detr_loss" if self.use_detr_loss else "f1"
@@ -716,6 +719,53 @@ class DSPyPromptOptimizer:
         self.run.finish()
         
         return final_prompt, final_metrics
+
+    def ensure_ollama_server(self):
+        """Check if Ollama server is running and restart if needed"""
+        import requests
+        import time
+        import subprocess
+        import os
+        import signal
+        
+        try:
+            response = requests.get("http://localhost:11434/api/tags")
+            if response.status_code == 200:
+                print("Ollama server is running properly")
+                return True
+        except requests.exceptions.ConnectionError:
+            print("Ollama server is not responding, attempting to restart...")
+        
+        # Kill any existing Ollama processes
+        try:
+            process = subprocess.run(
+                "pgrep -f '/work3/s184361/ollama/bin/ollama serve'", 
+                shell=True, 
+                capture_output=True, 
+                text=True
+            )
+            if process.stdout.strip():
+                pids = process.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid:
+                        try:
+                            os.kill(int(pid), signal.SIGTERM)
+                            print(f"Terminated Ollama process with PID {pid}")
+                        except:
+                            pass
+        except Exception as e:
+            print(f"Error killing existing Ollama processes: {e}")
+        
+        # Start a new Ollama server
+        try:
+            subprocess.Popen("/work3/s184361/ollama/bin/ollama serve", shell=True)
+            print("Started new Ollama server")
+            # Wait for server to start
+            time.sleep(10)
+            return True
+        except Exception as e:
+            print(f"Error starting Ollama server: {e}")
+            return False
 
 
 def main():
