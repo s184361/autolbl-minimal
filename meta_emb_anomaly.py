@@ -9,6 +9,7 @@ import os
 from tqdm import tqdm
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
+import cma
 
 # Add at the beginning of your script
 #os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
@@ -112,6 +113,29 @@ class PromptOptimizer:
             recombination=0.7, 
             maxiter=maxiter
             )
+        elif self.optimizer == "CMA":
+            # CMA-ES optimization
+            sigma0 = 10000.0  # Initial step size
+            
+            # Run optimization with CMA-ES
+            cma_result = cma.fmin(
+                lambda x: self.objective(x, img=img),
+                x0,
+                sigma0,
+                options={
+                    'bounds': [0, len(self.tokenizer)],
+                    'maxfevals': maxiter * len(x0) * 10,  # Adjust based on dimensionality
+                    'verbose': 1  # Show progress
+                }
+            )
+            
+            # Create result object with similar structure to other optimizers
+            class Result:
+                def __init__(self, x, fun):
+                    self.x = x
+                    self.fun = fun
+            
+            result = Result(cma_result[0], cma_result[1])  # xbest, fbest
         else:
             raise ValueError(f"Unknown optimizer: {optimizer}")
 
@@ -203,11 +227,11 @@ if __name__ == "__main__":
         # Create optimizer and run optimization
         optimizer_good = PromptOptimizer(
             img_folder=good_img_folder,
-            initial_prompt="wood",
+            initial_prompt="[PAD] [PAD] [PAD]",
             indices=indices,
         )
         good_prompt = optimizer_good.optimize(
-            maxiter=1000, optimizer="differential_evolution"
+            maxiter=1000, optimizer="CMA"
         )
 
         # prepare test data
@@ -231,7 +255,7 @@ if __name__ == "__main__":
                 img_path = os.path.join(good_img_folder, good_files[i])
                 img = PIL.Image.open(img_path)
                 good_prompt=optimizer_good.optimize(
-                    maxiter=1000, optimizer="differential_evolution", img=img
+                    maxiter=1000, optimizer="CMA", img=img
                     )
                 good_prompt_emb[i] = optimizer_good.base_model.embed_text(good_prompt)
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -253,7 +277,7 @@ if __name__ == "__main__":
             img = PIL.Image.open(img_path)
             emb = optimizer_good.base_model.embed_image(img)
             prompt_bad = optimizer_good.optimize(
-                maxiter=100, optimizer="differential_evolution", img=img
+                maxiter=100, optimizer="CMA", img=img
             )
             if vectorized:
                 bad_difference[i] = optimizer_good.base_model.vec_difference(emb, optimizer_good.base_model.embed_text(prompt_bad)).cpu()
