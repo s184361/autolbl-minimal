@@ -194,6 +194,14 @@ def review_detection_with_qwen(model, processor, image, box_tuple, cropped_image
                     "image": cropped_image,
                 },
                 {
+                    "type": "text",
+                    "text": "Please look at this cropped image and wait for the next message.",
+                },
+                {
+                    "type": "image",
+                    "image": image,
+                },
+                {
                     "type": "text", 
                     "text": create_review_prompt(box_tuple, object_name)
                 },
@@ -294,7 +302,7 @@ def main():
             box_tuple = (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
             # Crop image based on the current bbox
             cropped_image = image.crop(box_tuple)
-            object_name = initial_prompt
+            object_name = "defect or anomaly"  # Replace with the actual object name if available
             
             # Direct review with Qwen
             is_valid = review_detection_with_qwen(
