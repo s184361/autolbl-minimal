@@ -62,6 +62,6 @@ echo "Running bnvtop $LSB_JOBID to monitor GPU usage"
 bnvtop $LSB_JOBID &
 
 clear_gpu
-python prompt_Florence.py --ontology="paint. hole. liqud. water. scratch"
+python prompt_Florence.py #--ontology="paint. hole. liqud. water. scratch"
 #bsub -v "MODEL=Florence DINO" < opt_ax.sh
 

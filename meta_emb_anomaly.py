@@ -227,7 +227,7 @@ if __name__ == "__main__":
         # Create optimizer and run optimization
         optimizer_good = PromptOptimizer(
             img_folder=good_img_folder,
-            initial_prompt="[PAD] [PAD] [PAD]",
+            initial_prompt="[PAD] [PAD] [PAD] [PAD] [PAD]",
             indices=indices,
         )
         good_prompt = optimizer_good.optimize(

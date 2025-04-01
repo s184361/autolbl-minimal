@@ -67,8 +67,6 @@ lollama serve &
 LOLLAMA_PID=$!
 sleep 10  # Give lollama time to start up
 
-clear_gpu
-
 # Run optimizer with Florence
 echo "Running optimizer with Florence model..."
 python dspy_prompt_optimizer.py --section wood --model Florence --lm_model ollama/gemma3:1b

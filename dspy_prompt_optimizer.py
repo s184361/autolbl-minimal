@@ -598,7 +598,7 @@ class DSPyPromptOptimizer:
         print("Optimizing program with MIPROv2...")
         teleprompter = MIPROv2(
             metric=self.metric_function,
-            auto="light",
+            auto="heavy",
             max_bootstrapped_demos=0,
             max_labeled_demos=0,
             num_threads=1
@@ -612,6 +612,7 @@ class DSPyPromptOptimizer:
         trainset=self.trainset,
         valset=self.devset,
         requires_permission_to_run=False,
+        num_trials=10
         )
 
         # Save optimized program for future use
@@ -774,7 +775,8 @@ def main():
     parser.add_argument("--config", default="config.json", help="Path to config file")
     parser.add_argument("--section", default="wood", help="Section in config file")
     parser.add_argument("--model", default="Qwen", help="Vision model to use")
-    parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
+    #parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
+    parser.add_argument("--lm_model", default="ollama/qwen2.5:7b", help="Language model to use")
     parser.add_argument("--randomize", default=False, type=bool, help="Randomize initial prompts")
     parser.add_argument("--use_detr_loss",default=True, type=bool, help="Use DETR loss function instead of F1 score")
     parser.add_argument("--example_file", default=None, help="Path to example file (optional)")

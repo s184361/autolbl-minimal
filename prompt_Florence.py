@@ -212,7 +212,7 @@ def run_any_args(args,loaded_model=None):
 
     # Load the dataset
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=2)
+    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=100)
     #label the dataset
     dataset = base_model.label(
         input_folder=config['IMAGE_DIR_PATH'],
@@ -274,7 +274,7 @@ def main():
     args = parse_arguments()
     #set section to work3_tires
     args.section = "wood"
-    args.ontology = "defect"
+    args.ontology = "remaining clarinet bullets facilitatesaging episodes jessegging fisher glacier"
 
     run_any_args(args)
 if __name__ == "__main__":

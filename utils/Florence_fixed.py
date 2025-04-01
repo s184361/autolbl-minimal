@@ -303,6 +303,34 @@ class Florence2Trainer(DetectionTargetModel):
 
                 loss.backward(), optimizer.step(), lr_scheduler.step(), optimizer.zero_grad()
                 train_loss += loss.item()
+                
+                # After optimization, decode the prompt to see what it's learning
+                with torch.no_grad():
+                    # Extract images from inputs for prediction
+                    # Get raw images from batch for prediction
+                    batch_images = []
+                    for i in range(actual_batch_size):
+                        # Convert processed pixel_values back to images for evaluation
+                        # This is a simplified approach - ideally you'd track original images
+                        img_tensor = inputs["pixel_values"][i].cpu().numpy()
+                        # Process single image for prediction
+                        if i == 0:  # Just evaluate the first image for efficiency
+                            # Convert from tensor to PIL for prediction
+                            img_tensor = np.transpose(img_tensor, (1, 2, 0))
+                            # Normalize to 0-255 range
+                            img_tensor = (img_tensor * 255).astype(np.uint8)
+                            img_pil = Image.fromarray(img_tensor)
+                            # Get detections for this single image
+                            detections = self.predict(img_pil)
+                            # Evaluate the detections
+                            try:
+                                confusion_matrix, acc, map_result = evaluate_detections(detections, train_dataset)
+                                print(f"Confusion Matrix: {confusion_matrix}")
+                                print(f"Accuracy: {acc}")
+                                # Log the accuracy
+                                wandb.log({"accuracy": acc})
+                            except Exception as e:
+                                print(f"Error evaluating detections: {e}")
 
             avg_train_loss = train_loss / len(train_loader)
             print(f"Average Training Loss: {avg_train_loss}")
@@ -382,6 +410,9 @@ class Florence2Prompt(DetectionTargetModel):
             image = input
         elif isinstance(input, np.ndarray):
             image = Image.fromarray(input)
+        else:
+            #print(input)
+            image = input
         
         # Use the optimized prompt if available
         task = "<OD>"
@@ -518,15 +549,32 @@ class Florence2Prompt(DetectionTargetModel):
                 
                 # After optimization, decode the prompt to see what it's learning
                 with torch.no_grad():
-                    #get the detections
-                    detections = self.predict(inputs)
-                    #evaluate the detections
-                    confusion_matrix, acc, map_result=evaluate_detections(detections,train_dataset)
-                    print(f"Confusion Matrix: {confusion_matrix}")
-                    print(f"Accuracy: {acc}")
-                    #log the accuracy
-                    wandb.log({"accuracy": acc})
-                    # Try to decode prompt embeddings to see current prompt
+                    # Extract images from inputs for prediction
+                    # Get raw images from batch for prediction
+                    batch_images = []
+                    for i in range(actual_batch_size):
+                        # Convert processed pixel_values back to images for evaluation
+                        # This is a simplified approach - ideally you'd track original images
+                        img_tensor = inputs["pixel_values"][i].cpu().numpy()
+                        # Process single image for prediction
+                        if i == 0:  # Just evaluate the first image for efficiency
+                            # Convert from tensor to PIL for prediction
+                            img_tensor = np.transpose(img_tensor, (1, 2, 0))
+                            # Normalize to 0-255 range
+                            img_tensor = (img_tensor * 255).astype(np.uint8)
+                            img_pil = Image.fromarray(img_tensor)
+                            # Get detections for this single image
+                            detections = self.predict(img_pil)
+                            # Evaluate the detections
+                            try:
+                                confusion_matrix, acc, map_result = evaluate_detections(detections, train_dataset)
+                                print(f"Confusion Matrix: {confusion_matrix}")
+                                print(f"Accuracy: {acc}")
+                                # Log the accuracy
+                                wandb.log({"accuracy": acc})
+                            except Exception as e:
+                                print(f"Error evaluating detections: {e}")
+                            # Try to decode prompt embeddings to see current prompt
                     # This is approximate as direct inversion isn't always perfect
                     logits = self.model.get_input_embeddings().weight.mm(prompt_embeds[0].T)
                     token_ids = torch.argmax(logits, dim=0)
