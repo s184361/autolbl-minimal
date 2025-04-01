@@ -572,6 +572,19 @@ class Florence2Prompt(DetectionTargetModel):
                                 print(f"Accuracy: {acc}")
                                 # Log the accuracy
                                 wandb.log({"accuracy": acc})
+                                TP = confusion_matrix[0, 0] / confusion_matrix.sum()
+                                FP = confusion_matrix[0, 1] / confusion_matrix.sum()
+                                FN = confusion_matrix[1, 0] / confusion_matrix.sum()
+                                F1 = 2 * TP / (2 * TP + FP + FN)
+                                print(f"F1 Score: {F1}")
+                                wandb.log(
+                                    {
+                                        "TP": TP,
+                                        "FP": FP,
+                                        "FN": FN,
+                                        "F1": F1,
+                                    }
+                                )
                             except Exception as e:
                                 print(f"Error evaluating detections: {e}")
                             # Try to decode prompt embeddings to see current prompt

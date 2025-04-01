@@ -14,6 +14,9 @@ import torch
 import gc
 import numpy as np  # Ensure numpy is imported
 from utils.check_labels import set_one_class, check_classes
+from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
+from qwen_vl_utils import process_vision_info
+from autodistill.detection import CaptionOntology
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -159,20 +162,90 @@ def log_wandb_metrics(metrics):
         metrics (dict): Dictionary of metrics to log.
     """
     wandb.log(metrics)
+
+def create_review_prompt(box_tuple, object_name):
+    """
+    Create a prompt for Qwen to review a detection.
+    """
+    return f"Examine this image. Does it contain a {object_name}? Answer with only 'true' or 'false'."
+
+def review_detection_with_qwen(model, processor, image, box_tuple, cropped_image, object_name):
+    """
+    Uses Qwen2.5-VL to review a detection directly through transformers.
+    
+    Args:
+        model: Qwen2.5-VL model
+        processor: Qwen2.5-VL processor
+        image: PIL image of the full scene
+        box_tuple: Coordinates of the bounding box
+        cropped_image: Cropped region of the image
+        object_name: Name of the object to check for
+    
+    Returns:
+        Boolean indicating if detection is valid
+    """
+    # Create prompt message with image
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": cropped_image,
+                },
+                {
+                    "type": "text", 
+                    "text": create_review_prompt(box_tuple, object_name)
+                },
+            ],
+        }
+    ]
+    
+    try:
+        # Process input
+        text = processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = processor(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+        
+        # Move to appropriate device
+        device = next(model.parameters()).device
+        inputs = inputs.to(device)
+        
+        # Generate response
+        generated_ids = model.generate(**inputs, max_new_tokens=128)
+        generated_ids_trimmed = [
+            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        response = processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0]
+        
+        print(f"Raw Qwen response: {response}")
+        
+        # Parse response - looking for true/false
+        response_lower = response.lower()
+        if "true" in response_lower or "yes" in response_lower:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error in Qwen review: {e}")
+        return False  # Default to rejecting on error
+
+
 def main():
     # Initialize wandb
     wandb.login()
     run = wandb.init(project="dspy")
-
-    # Define and configure the language model
-    lm = dspy.LM("ollama/qwen2.5:7b",
-                api_base="http://localhost:11434",
-                api_key="",
-                max_tokens=18944,
-                launch_kwargs= {"n_ctx_per_seq" : 18944},
-                kwargs={"num_ctx_per_seq": 18944})
-    dspy.configure(lm=lm)
-
+    
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -184,8 +257,7 @@ def main():
         config["GT_DATA_YAML_PATH"],
     )
 
-    check_and_revise_prompt = dspy.ChainOfThought(CheckAndRevisePrompt)
-    check_detection = dspy.ChainOfThought(CheckDetection)
+    # Initial annotation with Florence2
     initial_prompt = "Analyze the visual data of a blue stain on a surface, focusing on identifying the presence of cracks, dead knots, missing knots, and a knot with cracks."
     gt_class, TP, FP, FN, acc, F1, dataset = label_images(config, gt_dataset, initial_prompt)
     log_wandb_metrics({
@@ -195,7 +267,24 @@ def main():
         "Accuracy": acc,
         "F1 Score": F1,
     })
+    
+    # Review annotations directly with Qwen
     ds_review = dataset
+    gc.collect()
+    torch.cuda.empty_cache()
+    # Initialize Qwen model directly with transformers
+    print("Loading Qwen2.5-VL model...")
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        "Qwen/Qwen2.5-VL-7B-Instruct",  # Using 7B instead of 72B for resource compatibility
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True
+    )
+    processor = AutoProcessor.from_pretrained(
+        "Qwen/Qwen2.5-VL-7B-Instruct",
+        trust_remote_code=True
+    )
+    print("Qwen2.5-VL model loaded successfully.")
     for image_path, image, annotation in ds_review:
         image = Image.open(image_path)
         boxes = annotation.xyxy
@@ -205,28 +294,22 @@ def main():
             box_tuple = (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
             # Crop image based on the current bbox
             cropped_image = image.crop(box_tuple)
-            object_name = "anomaly defect"
-            prompt = template_prompt(np.array(image), box_tuple, np.array(cropped_image), object_name)
-            #print("Prompt:", prompt)
-            response = process_detection_prompt(check_and_revise_prompt, prompt)
-            #response=None
-            try:
-                response2 = check_detection(
-                    input_image=dspy.Image.from_PIL(image),
-                    input_box=box_tuple,
-                    input_region=dspy.Image.from_PIL(cropped_image),
-                    input_object=object_name,
-                )
-            except:
-                response2 = False
-            print("Prompt review response:", response)
-            print("Detection check response:", response2)
-
+            object_name = initial_prompt
+            
+            # Direct review with Qwen
+            is_valid = review_detection_with_qwen(
+                model,
+                processor, 
+                image, 
+                box_tuple, 
+                cropped_image,
+                object_name
+            )
+            
+            print(f"Qwen review result: {is_valid}")
+            
             # Adjust detection confidence based on reviewer decision
-            if "false" in str(response2).lower():
-                annotation.confidence[i] = 0
-            else:
-                annotation.confidence[i] = 1
+            annotation.confidence[i] = 1 if is_valid else 0
 
     # Filter ds_review based on the updated confidence values
     filtered_ds = filter_detection_dataset(ds_review, threshold=0.5)
@@ -237,11 +320,18 @@ def main():
     F1 = 2 * TP / (2 * TP + FP + FN)
 
     log_wandb_metrics({
-        "Filtered Accuracy": acc,
+        "Filtered Accuracy": acc[0],
         "Filtered F1 Score": F1,
         "Filtered TP": TP,
         "Filtered FP": FP,
         "Filtered FN": FN,
+    })
+    log_wandb_metrics({
+        "TP": TP,
+        "FP": FP,
+        "FN": FN,
+        "Accuracy": acc,
+        "F1 Score": F1,
     })
     print(f"Accuracy after filtering: {acc}")
     print(f"Confusion Matrix after filtering: {confusion_matrix}")

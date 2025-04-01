@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 from utils.check_labels import *
 
 # from autodistill_grounding_dino import GroundingDINO
-from utils.Florence_fixed import Florence2Prompt
+from utils.Florence_fixed import Florence2Prompt, Florence2
+from autodistill.detection import CaptionOntology
 
 from utils.wandb_utils import compare_plot as compare_wandb
 import wandb
@@ -80,111 +81,6 @@ def run_any_args(args,loaded_model=None):
         names = sorted([name.lower().replace("_", " ") for name in names])
         ont_list = {name: name for name in names}
 
-        """
-        ont_list =ont_list = {
-        "wood defect": "defect",
-        "wood grain": "grain",
-        "cat": "cat",
-        "dog": "dog",
-        "cracked wood": "crack",
-        "blurred wood grain": "blurred grain",
-        "contamination on wood": "contamination",
-        "anomaly in wood": "anomaly",
-        "spec on wood": "spec",
-        "smooth wood": "smooth",
-        "damaged wood surface": "damaged surface",
-        "sharp wood splinter": "sharp splinter",
-        "missing wood piece": "missing piece",
-        "dirty wood surface": "dirty surface",
-        "chip in wood": "chip",
-        "wood discoloration": "discoloration",
-        "foreign particle on wood": "particle",
-        "residue on wood": "residue",
-        "broken wood section": "broken section",
-        "polished wood": "polished",
-        "perfect wood grain": "perfect grain",
-        "rough wood texture": "rough texture",
-        "micro-cracks in wood": "micro-cracks",
-        "a knot in wood": "knot",
-        "wood grain pattern": "grain pattern",
-        "splintered wood": "splinter",
-        "blurry wood defect": "blurry defect",
-        "sharp wood edge": "sharp edge",
-        "rough wood edge": "rough edge",
-        "soft wood section": "soft wood",
-        "hardwood": "hardwood",
-        "a saw mark": "saw mark",
-        "wood scratch": "scratch",
-        "wood dent": "dent",
-        "fuzzy wood grain": "fuzzy grain",
-        "clean wood surface": "clean surface",
-        "wood rot": "rot",
-        "fungus on wood": "fungus",
-        "mold on wood": "mold",
-        "wood chip": "chip",
-        "rough cut": "rough cut",
-        "smooth cut": "smooth cut",
-        "grain misalignment": "misaligned grain",
-        "split wood": "split",
-        "blurry wood imperfection": "blurry imperfection",
-        "sharp wood imperfection": "sharp imperfection",
-        "uneven wood surface": "uneven surface",
-        "peeling wood finish": "peeling finish",
-        "cracked wood surface": "cracked surface",
-        "warped wood": "warped",
-        "bowed wood": "bowed",
-        "cupped wood": "cupped",
-        "twisted wood": "twisted",
-        "burn mark on wood": "burn mark",
-        "water stain on wood": "water stain",
-        "wood scratch marks": "scratch marks",
-        "gouge in wood": "gouge",
-        "faded wood color": "faded color",
-        "blurry knot": "blurry knot",
-        "sharp knot": "sharp knot",
-        "small crack in wood": "small crack",
-        "large crack in wood": "large crack",
-        "wood filler residue": "filler residue",
-        "loose grain": "loose grain",
-        "tight grain": "tight grain",
-        "natural wood imperfection": "natural imperfection",
-        "blurry grain boundary": "blurry boundary",
-        "sharp grain boundary": "sharp boundary",
-        "chipped wood corner": "chipped corner",
-        "frayed wood edge": "frayed edge",
-        "smooth wood finish": "smooth finish",
-        "rough wood finish": "rough finish",
-        "blurry saw mark": "blurry saw mark",
-        "clear saw mark": "clear saw mark",
-        "wood decay": "decay",
-        "insect damage in wood": "insect damage",
-        "termite holes in wood": "termite holes",
-        "sharp splinters": "sharp splinters",
-        "blurry discoloration": "blurry discoloration",
-        "sharp discoloration": "sharp discoloration",
-        "sun-bleached wood": "sun-bleached",
-        "varnish peeling": "peeling varnish",
-        "paint residue on wood": "paint residue",
-        "wood putty mark": "putty mark",
-        "wood patch": "patch",
-        "wood veneer": "veneer",
-        "a plank of wood": "plank",
-        "a tree trunk": "tree trunk",
-        "a wooden board": "board",
-        "a wooden beam": "beam",
-        "a wooden table": "table",
-        "a wooden chair": "chair",
-        "fire damage on wood": "fire damage",
-        "charring on wood": "charring",
-        "wood grain variation": "grain variation",
-        "uneven grain": "uneven grain",
-        "fine cracks in wood": "fine cracks",
-        "deep cracks in wood": "deep cracks",
-        "resin pocket in wood": "resin pocket",
-        "wood glue residue": "glue residue",
-        "wood surface blistering": "blistering"
-    }
-    """
     else:
         try:
             ont_list = dict(item.split(": ") for item in args.ontology.split(", "))
@@ -214,6 +110,7 @@ def run_any_args(args,loaded_model=None):
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=100)
     #label the dataset
+    base_model = Florence2(ontology=CaptionOntology({final_prompt: "defect"})) 
     dataset = base_model.label(
         input_folder=config['IMAGE_DIR_PATH'],
         extension=".jpg",
@@ -221,7 +118,16 @@ def run_any_args(args,loaded_model=None):
         sahi=args.sahi,
         save_images=args.save_images
     )
+        # check if the dataset is empty
+    if len(dataset) == 0:
 
+        dataset = base_model.label(
+            input_folder=config['IMAGE_DIR_PATH'],
+            extension=".png",
+            output_folder=config['DATASET_DIR_PATH'],
+            sahi=args.sahi,
+            save_images=args.save_images
+        )
     print("Final prompt:", final_prompt)
     if args.reload:
         dataset = sv.DetectionDataset.from_yolo(
@@ -274,7 +180,7 @@ def main():
     args = parse_arguments()
     #set section to work3_tires
     args.section = "wood"
-    args.ontology = "remaining clarinet bullets facilitatesaging episodes jessegging fisher glacier"
+    args.ontology = "<s>remainingsounding・�.,''brainer μ j glim️ Kurdistan Scalia</s>"
 
     run_any_args(args)
 if __name__ == "__main__":

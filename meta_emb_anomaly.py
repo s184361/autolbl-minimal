@@ -255,7 +255,7 @@ if __name__ == "__main__":
                 img_path = os.path.join(good_img_folder, good_files[i])
                 img = PIL.Image.open(img_path)
                 good_prompt=optimizer_good.optimize(
-                    maxiter=1000, optimizer="CMA", img=img
+                    maxiter=100, optimizer="CMA", img=img
                     )
                 good_prompt_emb[i] = optimizer_good.base_model.embed_text(good_prompt)
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -394,8 +394,33 @@ if __name__ == "__main__":
             axes = [ax1, ax2, ax3, ax4]
             metrics = [diff_test_max, diff_test_min, diff_test_mean, diff_test_median]
             titles = ['Maximum', 'Minimum', 'Mean', 'Median']
-
+            #accuracy 
             for ax, metric, title, mLOO in zip(axes, metrics, titles, metric_LOO):
+                quantile_steps = np.linspace(0, 1, 100)
+                
+                # Check if mLOO is empty before calculating quantiles
+                if len(mLOO) == 0:
+                    print(f"Warning: Empty array for {title} LOO metric. Skipping quantile calculation.")
+                    continue  # Skip this iteration
+                    
+                thresholds = np.quantile(mLOO, quantile_steps)
+                #F1 based on LOO
+                f1_scores = []
+                for threshold in thresholds:
+                    pred_labels = (metric > threshold).astype(int)
+                    f1 = f1_score(labels, pred_labels)
+                    f1_scores.append(f1)
+                best_f1_index = np.argmax(f1_scores)
+                best_f1_threshold = thresholds[best_f1_index]
+                best_f1 = f1_scores[best_f1_index]
+                # Plot F1 scores
+                ax.plot(quantile_steps, f1_scores, label='F1 Score')
+                ax.axvline(x=quantile_steps[best_f1_index], color='r', linestyle='--', label=f'Best F1: {best_f1:.4f} at threshold {best_f1_threshold:.4f}')
+                ax.axhline(y=best_f1, color='g', linestyle='--', label=f'Best F1: {best_f1:.4f}')
+                ax.set_xlabel("Quantile Steps")
+                ax.set_ylabel("F1 Score")
+                ax.set_title(f"F1 Score vs Quantile Steps - {title}")
+                ax.legend()
                 # Plot the data points
                 ax.scatter(labels, metric, alpha=0.5)
                 ax.scatter(np.ones(len(mLOO))*2, mLOO, label="good")

@@ -89,7 +89,7 @@ class DSPyPromptOptimizer:
         self.check_classes(self.gt_dataset)
         # Default prompts list
         self.default_prompts = [
-            "Wooden surface with two circular holes. The holes appear to be made of a light-colored wood, possibly pine or birch. The wood has a rough texture, with visible knots and grooves. The edges of the wood are visible, and there is a small amount of dirt or grime on the surface. The image is taken from a top-down perspective, looking down on the holes.",
+            "Analyze the visual data of a blue stain on a surface, focusing on identifying the presence of cracks, dead knots, missing knots, and a knot with cracks.",
             "blue. stain. crack. dead knot. missing knot. knot with crack. live knot. marrow. overgrown. quartzity. resin",
             "paint. hole. liqud. water. scratch",
             "broken small. broken large. contamination."
@@ -386,6 +386,15 @@ class DSPyPromptOptimizer:
         
         # Return either F1 or negative loss as the optimization metric
         print(f"Metric value: {metric_value}")
+        #print current date and time
+        print(f"Current date and time: {pd.Timestamp.now()}")
+        #log time to wandb
+        try:
+            wandb.log({
+                "current_time": pd.Timestamp.now()
+            })
+        except:
+            print("Wandb logging failed")
         self.ensure_ollama_server()
         return metric_value
     
@@ -774,9 +783,9 @@ def main():
     parser = argparse.ArgumentParser(description="Run DSPy Prompt Optimization")
     parser.add_argument("--config", default="config.json", help="Path to config file")
     parser.add_argument("--section", default="wood", help="Section in config file")
-    parser.add_argument("--model", default="Qwen", help="Vision model to use")
+    parser.add_argument("--model", default="Florence", help="Vision model to use")
     #parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
-    parser.add_argument("--lm_model", default="ollama/qwen2.5:7b", help="Language model to use")
+    parser.add_argument("--lm_model", default="ollama/deepseek-r1:7b", help="Language model to use")
     parser.add_argument("--randomize", default=False, type=bool, help="Randomize initial prompts")
     parser.add_argument("--use_detr_loss",default=True, type=bool, help="Use DETR loss function instead of F1 score")
     parser.add_argument("--example_file", default=None, help="Path to example file (optional)")
