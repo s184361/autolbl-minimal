@@ -108,7 +108,7 @@ def run_any_args(args,loaded_model=None):
 
     # Load the dataset
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=100)
+    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=350)
     #label the dataset
     base_model = Florence2(ontology=CaptionOntology({final_prompt: "defect"})) 
     dataset = base_model.label(

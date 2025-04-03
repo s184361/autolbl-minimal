@@ -26,13 +26,14 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
     parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
     parser.add_argument('--section', type=str, default='defects', help='Section of the configuration to use.')
-    parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP', "Qwen"], default='Florence', help='Model to use for autodistill.')
+    parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP', "Qwen"], default='DINO', help='Model to use for autodistill.')
     parser.add_argument('--tag', type=str, default='default', help='Tag for the wandb run.')
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
     parser.add_argument('--reload', type=bool, default=False, help='Reload the dataset from YOLO format.')
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
     parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
     parser.add_argument('--save_images', type=bool, default=False, help='Save images for destillation')
+    parser.add_argument('--nms', type=str, default="class_specific", help='NMS setting for the model.')
     return parser.parse_args()
 def set_one_class(gt_dataset):
     for key in gt_dataset.annotations.keys():
@@ -267,7 +268,8 @@ def run_any_args(args,loaded_model=None):
         extension=".jpg",
         output_folder=config['DATASET_DIR_PATH'],
         sahi=args.sahi,
-        save_images=args.save_images
+        save_images=args.save_images,
+        nms_settings=args.nms
     )
     # check if the dataset is empty
     if len(dataset) == 0:

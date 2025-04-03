@@ -438,7 +438,7 @@ class Florence2Prompt(DetectionTargetModel):
 
         return detections
 
-    def train(self, ds_train=None, ds_valid=None, epochs=10, lr=1e-3, prompt_len=10):
+    def train(self, ds_train=None, ds_valid=None, epochs=10, lr=1e-2, prompt_len=10):
         if ds_train is None or ds_valid is None:
             raise ValueError("Please provide training and validation datasets")
         BATCH_SIZE = 30

@@ -23,7 +23,7 @@ def prase_args():
     
     parser.add_argument('--randomize', type=bool, default=False)
     parser.add_argument('--initial_prompt', type=str, default='[PAD] [PAD] [PAD]')
-    parser.add_argument('--ds_name', type=str, default='tires')
+    parser.add_argument('--ds_name', type=str, default='wood')
     parser.add_argument('--model', type=str, default='Florence')
     parser.add_argument('--optimizer', type=str, default='ax')
     parser.add_argument('--encoding_type', type=str, default='bert')
@@ -154,7 +154,8 @@ class PromptOptimizer:
             reload=False,
             ontology=f'{prompt}: defect',
             wandb=False,
-            save_images=False
+            save_images=False,
+            nms="class_specific"
         )
         dataset = run_any_args(args)
         #set one class

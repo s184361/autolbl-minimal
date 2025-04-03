@@ -34,6 +34,7 @@ def parse_arguments():
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
     parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
     parser.add_argument('--save_images', type=bool, default=True, help='Save images for destillation')
+    parser.add_argument('--nms', type=str, default=False, help='Use NMS for detection')
     return parser.parse_args()
 def set_one_class(gt_dataset):
     for key in gt_dataset.annotations.keys():
@@ -261,7 +262,8 @@ def run_any_args(args):
         extension=".jpg",
         output_folder=config['DATASET_DIR_PATH'],
         sahi=args.sahi,
-        save_images=args.save_images
+        save_images=args.save_images,
+
     )
     # check if the dataset is empty
     if len(dataset) == 0:
@@ -271,7 +273,8 @@ def run_any_args(args):
             extension=".png",
             output_folder=config['DATASET_DIR_PATH'],
             sahi=args.sahi,
-            save_images=args.save_images
+            save_images=args.save_images,
+            nms_settings=args.nms
         )
     if args.reload:
         dataset = sv.DetectionDataset.from_yolo(

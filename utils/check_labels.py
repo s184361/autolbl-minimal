@@ -172,7 +172,22 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             wandb.log({"mAP": wandb.Image(fig)})
         except Exception as e:
             print(f"WandB logging error: {e}")
-        #plt.savefig(f"{results_dir}/mAP.png")
+        #return map result at 0.5
+        print(map_result["map_50"])
+        #IoU
+        # Calculate IoU matrix between predictions and targets
+        iou_matrix = sv.utils.box_iou_batch(
+            boxes_true=np.array([t.xyxy for t in targets]),
+            boxes_detection=np.array([p.xyxy for p in predictions])
+        )
+        
+        # Log IoU results
+        mean_iou = np.mean(np.max(iou_matrix, axis=0)) if iou_matrix.size > 0 else 0
+        print(f"Mean IoU: {mean_iou:.4f}")
+        try:
+            wandb.log({"Mean IoU": mean_iou})
+        except Exception as e:
+            print(f"WandB logging error: {e}")
     return confusion_matrix, acc, map_result
 
 def compare_plot(dataset, gt_dataset, results_dir="results"):

@@ -21,13 +21,26 @@ from autodistill.detection import CaptionOntology
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 
-def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
+def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str,model: str = "Florence", section: str = "wood"):
+    """
+    Label images using a specified model and prompt.
+    Args:
+        config (dict): Configuration dictionary.
+        gt_dataset (sv.DetectionDataset): Ground truth dataset.
+        prompt (str): Prompt for the model.
+        model (str): Model to use for labeling.
+        section (str): Section in the configuration.
+    Returns:
+
+        tuple: Tuple containing ground truth class, true positives, false positives,
+               false negatives, accuracy, F1 score, and dataset.
+    """
     # Create the arguments
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     args = argparse.Namespace(
         config=config_path,
-        section="wood",
-        model="Florence",
+        section=section,
+        model=model,
         tag="default",
         sahi=False,
         reload=False,
@@ -249,16 +262,67 @@ def review_detection_with_qwen(model, processor, image, box_tuple, cropped_image
         return False  # Default to rejecting on error
 
 
+def parse_args():
+    """Parse command line arguments for the Qwen-based annotation review."""
+    parser = argparse.ArgumentParser(description="Review Florence2 annotations with Qwen2.5-VL")
+    
+    # Model configuration
+    parser.add_argument('--model_size', type=str, default="7B", choices=["7B", "72B"],
+                        help="Size of Qwen2.5-VL model to use (default: 7B)")
+    parser.add_argument('--threshold', type=float, default=0.5,
+                        help="Confidence threshold for filtering detections (default: 0.5)")
+    
+    # Initial prompt for Florence2
+    parser.add_argument('--prompt', type=str, 
+                        default="Analyze the visual data of a blue stain on a surface, focusing on identifying the presence of cracks, dead knots, missing knots, and a knot with cracks.",
+                        help="Initial prompt for Florence2 annotation")
+    
+    # Configuration
+    parser.add_argument('--config', type=str, default="config.json",
+                        help="Path to config file")
+    parser.add_argument('--section', type=str, default="wood",
+                        help="Section in config file to use")
+    
+    # Logging and output options
+    parser.add_argument('--wandb', action='store_true', default=True,
+                        help="Enable Weights & Biases logging")
+    parser.add_argument('--no-wandb', action='store_false', dest='wandb',
+                        help="Disable Weights & Biases logging")
+    parser.add_argument('--object_name', type=str, default="defect or anomaly",
+                        help="Name of object to check for in cropped images")
+    
+    # Flash attention - optimization for Qwen
+    parser.add_argument('--flash_attn', action='store_true', default=False,
+                        help="Enable flash attention for better performance (requires flash-attn package)")
+    parser.add_argument('--model', type=str, default="Qwen",
+                        choices=["Florence", "Qwen"],
+                        help="Model to use for autodistill (default: Qwen)")
+    parser.add_argument('--save_images', action='store_true', default=False,
+                        help="Save images for distillation")
+    parser.add_argument('--section', type=str, default="wood",
+                        help="Section in config file to use")
+    parser.add_argument('--reload', action='store_true', default=False,
+                        help="Reload the dataset from YOLO format")
+    
+    return parser.parse_args()
+
+
 def main():
-    # Initialize wandb
-    wandb.login()
-    run = wandb.init(project="dspy")
+    # Parse arguments
+    args = parse_args()
+    
+    # Initialize wandb if enabled
+    if args.wandb:
+        wandb.login()
+        
+        run = wandb.init(project="review_annotations", name=f"Qwen_Review_{args.model_size}", tags=["review", args.section])
+        wandb.config.update(args)
     
     gc.collect()
     torch.cuda.empty_cache()
 
-    with open("config.json", "r") as f:
-        config = json.load(f)["wood"]
+    with open(args.config, "r") as f:
+        config = json.load(f)[args.section]
     gt_dataset = load_dataset(
         config["GT_IMAGES_DIRECTORY_PATH"],
         config["GT_ANNOTATIONS_DIRECTORY_PATH"],
@@ -266,33 +330,51 @@ def main():
     )
 
     # Initial annotation with Florence2
-    initial_prompt = "Analyze the visual data of a blue stain on a surface, focusing on identifying the presence of cracks, dead knots, missing knots, and a knot with cracks."
-    gt_class, TP, FP, FN, acc, F1, dataset = label_images(config, gt_dataset, initial_prompt)
-    log_wandb_metrics({
-        "TP": TP,
-        "FP": FP,
-        "FN": FN,
-        "Accuracy": acc,
-        "F1 Score": F1,
-    })
+    gt_class, TP, FP, FN, acc, F1, dataset = label_images(config, gt_dataset, args.prompt)
+    
+    if args.wandb:
+        log_wandb_metrics({
+            "TP": TP,
+            "FP": FP,
+            "FN": FN,
+            "Accuracy": acc,
+            "F1 Score": F1,
+        })
     
     # Review annotations directly with Qwen
     ds_review = dataset
     gc.collect()
     torch.cuda.empty_cache()
+    
     # Initialize Qwen model directly with transformers
-    print("Loading Qwen2.5-VL model...")
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2.5-VL-7B-Instruct",  # Using 7B instead of 72B for resource compatibility
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        trust_remote_code=True
-    )
+    print(f"Loading Qwen2.5-VL-{args.model_size} model...")
+    
+    # Set up model configuration based on args
+    model_id = f"Qwen/Qwen2.5-VL-{args.model_size}-Instruct"
+    
+    # Configure model initialization based on flash attention setting
+    if args.flash_attn:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2",
+            device_map="auto",
+            trust_remote_code=True
+        )
+    else:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+    
     processor = AutoProcessor.from_pretrained(
-        "Qwen/Qwen2.5-VL-7B-Instruct",
+        model_id,
         trust_remote_code=True
     )
     print("Qwen2.5-VL model loaded successfully.")
+    
     for image_path, image, annotation in ds_review:
         image = Image.open(image_path)
         boxes = annotation.xyxy
@@ -302,7 +384,6 @@ def main():
             box_tuple = (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
             # Crop image based on the current bbox
             cropped_image = image.crop(box_tuple)
-            object_name = "defect or anomaly"  # Replace with the actual object name if available
             
             # Direct review with Qwen
             is_valid = review_detection_with_qwen(
@@ -311,7 +392,7 @@ def main():
                 image, 
                 box_tuple, 
                 cropped_image,
-                object_name
+                args.object_name
             )
             
             print(f"Qwen review result: {is_valid}")
@@ -320,27 +401,22 @@ def main():
             annotation.confidence[i] = 1 if is_valid else 0
 
     # Filter ds_review based on the updated confidence values
-    filtered_ds = filter_detection_dataset(ds_review, threshold=0.5)
+    filtered_ds = filter_detection_dataset(ds_review, threshold=args.threshold)
     confusion_matrix, acc, map_result = evaluate_detections(filtered_ds, gt_dataset)
     TP = confusion_matrix[0, 0] / confusion_matrix.sum()
     FP = confusion_matrix[0, 1] / confusion_matrix.sum()
     FN = confusion_matrix[1, 0] / confusion_matrix.sum()
     F1 = 2 * TP / (2 * TP + FP + FN)
 
-    log_wandb_metrics({
-        "Filtered Accuracy": acc[0],
-        "Filtered F1 Score": F1,
-        "Filtered TP": TP,
-        "Filtered FP": FP,
-        "Filtered FN": FN,
-    })
-    log_wandb_metrics({
-        "TP": TP,
-        "FP": FP,
-        "FN": FN,
-        "Accuracy": acc,
-        "F1 Score": F1,
-    })
+    if args.wandb:
+        log_wandb_metrics({
+            "Filtered Accuracy": acc[0],
+            "Filtered F1 Score": F1,
+            "Filtered TP": TP,
+            "Filtered FP": FP,
+            "Filtered FN": FN,
+        })
+    
     print(f"Accuracy after filtering: {acc}")
     print(f"Confusion Matrix after filtering: {confusion_matrix}")
 
