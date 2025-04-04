@@ -139,23 +139,28 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         )
         print(confusion_matrix.matrix)
         fig = confusion_matrix.plot(normalize=False)
-        #if there is more than one class
-        if len(dataset.classes) > 1:
-            confusion_matrix = confusion_matrix.matrix[:-1, :-1]  # Remove last row and column
-        else:
-            confusion_matrix = confusion_matrix.matrix
+        confusion_matrix = confusion_matrix.matrix
 
-    acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
-    print("acc", acc)
-    acc = np.append(acc, confusion_matrix.diagonal().sum() / confusion_matrix.sum())
-    print("acc", acc)
-    #if nan values are present and the corresponding diagonal value is 0, set accuracy to 0
-    acc[np.isnan(acc)] = 0
-    #print("acc", acc)
+    #calculate class precision and recall
+    precision = confusion_matrix.diagonal() / confusion_matrix.sum(axis=0) #sums over rows
+    recall = confusion_matrix.diagonal() / confusion_matrix.sum(axis=1) #sums over columns
+    F1 = 2 * (precision * recall) / (precision + recall)
+    #add overall precision and recall
+    TP= confusion_matrix[:-1,:-1].sum()
+    #sum last row
+    FP = confusion_matrix[-1,:].sum()
+    FN = confusion_matrix[:,-1].sum()
+    precision[-1] = TP/(TP+FP)
+    recall[-1] = TP/(TP+FN)
+    F1[-1] = 2 * (precision[-1] * recall[-1]) / (precision[-1] + recall[-1])
+
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1: {F1}")
     wandb.log({"Confusion Matrix": wandb.Image(fig)})
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
-        tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[acc])
+        tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[precision, recall, F1])
         wandb.log({"Accuracies": tab})
     except Exception as e:
         print(f"WandB logging error: {e}")
