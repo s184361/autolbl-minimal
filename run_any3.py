@@ -322,9 +322,7 @@ def run_any_args(args,loaded_model=None):
 
     # Evaluate the dataset
     print(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    if len(dataset)<100:
-        # 
-        pass
+
 
     # Finish the wandb run
     if args.wandb:
@@ -348,7 +346,8 @@ def run_any_args(args,loaded_model=None):
             recall = recall[0]
             precision = precision[0]
             F1 = F1[0]
-        compare_wandb(dataset, gt_dataset)
+        if len(dataset)<100:
+            compare_wandb(dataset, gt_dataset)
         wandb.log({                
             "recall": recall,
             "precision": precision,
