@@ -40,7 +40,24 @@ clear_gpu() {
     sleep 5
 }
 
-python run_any3.py --config /zhome/4a/b/137804/Desktop/autolbl/config.json --section default --model DINO --tag default --nms 
-python run_any3.py --config /zhome/4a/b/137804/Desktop/autolbl/config.json --section bottle --model DINO --tag bottle
-python run_any3.py --config /zhome/4a/b/137804/Desktop/autolbl/config.json --section hpc --model DINO --tag all_wood
-python run_any3.py --config /zhome/4a/b/137804/Desktop/autolbl/config.json --section wood --model DINO --tag wood
+python run_any3.py --section bottle --model DINO --tag bottle --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
+python run_any3.py --section hpc --model DINO --tag all_wood
+python run_any3.py --section wood --model DINO --tag wood --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
+python run_any3.py --model DINO --section wood --ontology "anomaly defect: defect" --tag defect
+python run_any3.py --section tire --model DINO --tag tire --ontology "car tire: car tire"
+python run_any3.py --section default --model DINO --tag default
+
+
+python run_any3.py --section default --model DINO --tag default_nms --nms "class_specific"
+python run_any3.py --section bottle --model DINO --tag bottle_nms --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
+python run_any3.py --section hpc --model DINO --tag all_wood_nms
+python run_any3.py --section wood --model DINO --tag wood_nms --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
+python run_any3.py --model DINO --section wood --ontology "anomaly defect: defect" --tag defect_nms
+python run_any3.py --section tire --model DINO --tag tire_nmss --ontology "car tire: car tire"
+
+#"BAG_OF_WORDS" ontology
+python run_any3.py --section default --model DINO --tag default_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section bottle --model DINO --tag bottle_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section hpc --model DINO --tag all_wood_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section wood --model DINO --tag wood_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section tire --model DINO --tag tire_bow --ontology "BAG_OF_WORDS"

@@ -207,7 +207,18 @@ def run_any_args(args,loaded_model=None):
         "deep cracks in wood": "deep cracks",
         "resin pocket in wood": "resin pocket",
         "wood glue residue": "glue residue",
-        "wood surface blistering": "blistering"
+        "wood surface blistering": "blistering",
+        "cracked glass": "cracked glass",
+        "broken glass": "broken glass",
+        "glass scratch": "glass scratch",
+        "glass chip": "glass chip",
+        "glass stain": "glass stain",
+        "broken mirror": "broken mirror",
+        "bottle neck": "bottle neck",
+        "glass shard": "glass shard",
+        "glass edge": "glass edge",
+        "anomalous glass": "anomalous glass",
+        "defective glass": "defective glass",
     }
     else:
         try:
@@ -319,32 +330,30 @@ def run_any_args(args,loaded_model=None):
     if args.wandb:
         gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
         #set one class for the gt_dataset if ont_list is {args.ontology: "defect"}
-        if len(ont_list) == 1 and list(ont_list.values())[0] == "defect":
+        if len(ont_list) == 1 and list(ont_list.values())[0] == "defect" or args.ontology == "BAG_OF_WORDS":
             gt_dataset = set_one_class(gt_dataset)
             #check if the gt_dataset is correct
             print("Dataset correct:", check_classes(gt_dataset))
-        confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
+        confusion_matrix, precision, recall, F1, map05,map05095 =evaluate_detections(dataset, gt_dataset)
         print(f"Confusion matrix: {confusion_matrix}")
         
-        print(f"Accuracy: {acc}")
-        if len(acc) > 1:
+        print(f"recall: {recall}")
+        if len(recall) > 2:
             # Take the last accuracy value
-            acc = acc[-1]
+            recall = recall[-1]
+            precision = precision[-1]
+            F1 = F1[-1]
         else:
             # If there is only one accuracy value, use it directly
-            acc = acc[0]
-        gt_class = "defect"
-        TP = confusion_matrix[0, 0] #/ confusion_matrix.sum()
-        FN = confusion_matrix[0, 1] #/ confusion_matrix.sum()
-        FP = confusion_matrix[1, 0] #/ confusion_matrix.sum()
-        F1 = 2 * TP / (2 * TP + FP + FN)
+            recall = recall[0]
+            precision = precision[0]
+            F1 = F1[0]
         compare_wandb(dataset, gt_dataset)
         wandb.log({                
-                "TP": TP,
-                "FP": FP,
-                "FN": FN,
-                "accuracy": acc,
-                "F1": F1
+            "recall": recall,
+            "precision": precision,
+            "F1": F1,
+            "confusion_matrix": confusion_matrix,
             })
     return dataset
 

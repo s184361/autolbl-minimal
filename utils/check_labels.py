@@ -145,23 +145,35 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     precision = confusion_matrix.diagonal() / confusion_matrix.sum(axis=0) #sums over rows
     recall = confusion_matrix.diagonal() / confusion_matrix.sum(axis=1) #sums over columns
     F1 = 2 * (precision * recall) / (precision + recall)
-    #add overall precision and recall
-    TP= confusion_matrix[:-1,:-1].sum()
-    #sum last row
-    FP = confusion_matrix[-1,:].sum()
-    FN = confusion_matrix[:,-1].sum()
-    precision[-1] = TP/(TP+FP)
-    recall[-1] = TP/(TP+FN)
-    F1[-1] = 2 * (precision[-1] * recall[-1]) / (precision[-1] + recall[-1])
+    #if more than 1 class, add overall precision and recall
+    if len(gt_dataset.classes) > 1:
+        #add overall precision and recall
+        TP= confusion_matrix[:-1,:-1].sum()
+        #sum last row
+        FP = confusion_matrix[-1,:].sum()
+        FN = confusion_matrix[:,-1].sum()
+        precision[-1] = TP/(TP+FP)
+        recall[-1] = TP/(TP+FN)
+        F1[-1] = 2 * (precision[-1] * recall[-1]) / (precision[-1] + recall[-1])
 
     print(f"Precision: {precision}")
     print(f"Recall: {recall}")
     print(f"F1: {F1}")
-    wandb.log({"Confusion Matrix": wandb.Image(fig)})
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
-        tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[precision, recall, F1])
-        wandb.log({"Accuracies": tab})
+        #create a table with the precision, recall and F1 score
+        df = pd.DataFrame(
+            {
+                "Class": gt_dataset.classes+ ["ANY_DEF"],
+                "Precision": precision,
+                "Recall": recall,
+                "F1": F1,
+            }
+        )
+        tab = wandb.Table(dataframe=df,allow_mixed_types=True)#columns=gt_dataset.classes + ["ANY_DEF"], data=[precision, recall, F1])
+        #add a new column to the table with the class names
+        
+        wandb.log({"Class metrics": tab})
     except Exception as e:
         print(f"WandB logging error: {e}")
 
@@ -169,19 +181,23 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
         map_metric = sv.metrics.MeanAveragePrecision()
         map_result = map_metric.update(predictions, targets).compute()
-        #print(map_result)
-
-        #map_result.plot()
-        fig = plt.gcf()  # grab last figure
         try:
+            #print attributes of map_result
+            print(f"map_result: {map_result.ap_per_class}")
+        except Exception as e:
+            print(f"Error in class_map: {e}")
+        try:
+            # Plot mAP
+            fig = map_result.plot()
+            fig = plt.gcf()  # grab last figure
             wandb.log({"mAP": wandb.Image(fig)})
         except Exception as e:
             print(f"WandB logging error: {e}")
-        #return map result at 0.5
-        print(map_result.map50)
         wandb.log({"mAP50": map_result.map50})
+        wandb.log({"mAP50_95": map_result.map50_95})
 
         #IoU
+        """
         # Calculate IoU matrix between predictions and targets
         from supervision.detection.utils import box_iou_batch
         
@@ -199,7 +215,8 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             wandb.log({"Mean IoU": mean_ious})
         except Exception as e:
             print(f"WandB logging error: {e}")
-    return confusion_matrix, acc, map_result
+        """
+    return confusion_matrix, precision, recall, F1, map_result.map50, map_result.map50_95
 
 def compare_plot(dataset, gt_dataset, results_dir="results"):
     # Ensure confidence is set for all annotations in both datasets
