@@ -26,14 +26,15 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Run autodistill with specified configuration.")
     parser.add_argument('--config', type=str, default='/zhome/4a/b/137804/Desktop/autolbl/config.json', help='Path to the JSON configuration file.')
     parser.add_argument('--section', type=str, default='defects', help='Section of the configuration to use.')
-    parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP', "Qwen"], default='DINO', help='Model to use for autodistill.')
+    parser.add_argument('--model', type=str, choices=['DINO', 'Florence', 'SAMHQ', 'Combined', 'MetaCLIP', "Qwen"], default='Florence', help='Model to use for autodistill.')
     parser.add_argument('--tag', type=str, default='default', help='Tag for the wandb run.')
     parser.add_argument('--sahi', action='store_true', help='Use SAHI for inference.')
     parser.add_argument('--reload', type=bool, default=False, help='Reload the dataset from YOLO format.')
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
     parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
     parser.add_argument('--save_images', type=bool, default=False, help='Save images for destillation')
-    parser.add_argument('--nms', type=str, default="class_specific", help='NMS setting for the model.')
+    parser.add_argument('--nms', type=str, default="no_nms", help='NMS setting for the model.')
+    parser.add_argument('--group', type=str, default=None, help='Group for the wandb run.')
     return parser.parse_args()
 def set_one_class(gt_dataset):
     for key in gt_dataset.annotations.keys():
@@ -53,9 +54,22 @@ def run_any_args(args,loaded_model=None):
         config = json.load(f)[args.section]
 
     # Initialize wandb
+    #all args to tags
+    #
     if args.wandb:
+        tags = []
+        for key, value in vars(args).items():
+            # Skip ontology in tags since it's stored in config
+            if key == 'ontology':
+                continue
+            # Truncate other long values
+            if isinstance(value, str) and len(f"{key}: {value}") > 63:
+                tag = f"{key}: {value[:40]}..."
+            else:
+                tag = f"{key}: {value}"
+            tags.append(tag)
         wandb.login()
-        wandb.init(project="Qwen", name=f"{args.model}_{args.tag}", tags=[args.tag])
+        wandb.init(project="Thesis", name=f"{args.model}_{args.tag}", tags=tags, config=config,group=args.group)
 
     # Reset folders
     try:
@@ -89,9 +103,9 @@ def run_any_args(args,loaded_model=None):
         names = re.findall(r"name=([^\n]+)", content)
         names = sorted([name.lower().replace("_", " ") for name in names])
         ont_list = {name: name for name in names}
-        ont_list = {"defect": "defect"}
+        #ont_list = {"defect": "defect"}
         print(ont_list)
-        """
+    elif args.ontology == "BAG_OF_WORDS":
         ont_list =ont_list = {
         "wood defect": "defect",
         "wood grain": "grain",
@@ -195,7 +209,6 @@ def run_any_args(args,loaded_model=None):
         "wood glue residue": "glue residue",
         "wood surface blistering": "blistering"
     }
-    """
     else:
         try:
             ont_list = dict(item.split(": ") for item in args.ontology.split(", "))
@@ -305,18 +318,25 @@ def run_any_args(args,loaded_model=None):
     # Finish the wandb run
     if args.wandb:
         gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-        #set one class for the gt_dataset
-        gt_dataset = set_one_class(gt_dataset)
-        #check if the gt_dataset is correct
-        print("Dataset correct:", check_classes(gt_dataset))
+        #set one class for the gt_dataset if ont_list is {args.ontology: "defect"}
+        if len(ont_list) == 1 and list(ont_list.values())[0] == "defect":
+            gt_dataset = set_one_class(gt_dataset)
+            #check if the gt_dataset is correct
+            print("Dataset correct:", check_classes(gt_dataset))
         confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
         print(f"Confusion matrix: {confusion_matrix}")
-        acc = acc[0]
+        
         print(f"Accuracy: {acc}")
+        if len(acc) > 1:
+            # Take the last accuracy value
+            acc = acc[-1]
+        else:
+            # If there is only one accuracy value, use it directly
+            acc = acc[0]
         gt_class = "defect"
-        TP = confusion_matrix[0, 0] / confusion_matrix.sum()
-        FP = confusion_matrix[0, 1] / confusion_matrix.sum()
-        FN = confusion_matrix[1, 0] / confusion_matrix.sum()
+        TP = confusion_matrix[0, 0] #/ confusion_matrix.sum()
+        FN = confusion_matrix[0, 1] #/ confusion_matrix.sum()
+        FP = confusion_matrix[1, 0] #/ confusion_matrix.sum()
         F1 = 2 * TP / (2 * TP + FP + FN)
         compare_wandb(dataset, gt_dataset)
         wandb.log({                
@@ -331,8 +351,8 @@ def run_any_args(args,loaded_model=None):
 def main():
     args = parse_arguments()
     #set section to work3_tires
-    args.section = "wood"
-    args.ontology = "pumps tensed oceanuses [unused810] [unused368] bombay wavelengthsctuseriantlanurianbant yells"
+    #args.section = "wood"
+    #args.ontology = "pumps tensed oceanuses [unused810] [unused368] bombay wavelengthsctuseriantlanurianbant yells"
 
     run_any_args(args)
 if __name__ == "__main__":

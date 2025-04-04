@@ -805,7 +805,7 @@ def main():
         lm_model=args.lm_model,
         randomize=args.randomize,
         use_detr_loss=args.use_detr_loss,
-        loaded_model=q25
+        loaded_model=q25,
     )
     
     final_prompt, final_metrics = optimizer.run_optimization(args.example_file)

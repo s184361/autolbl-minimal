@@ -137,7 +137,8 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             classes=dataset.classes,
             iou_threshold=0.5,
         )
-        #fig = confusion_matrix.plot(normalize=True)
+        print(confusion_matrix.matrix)
+        fig = confusion_matrix.plot(normalize=False)
         #if there is more than one class
         if len(dataset.classes) > 1:
             confusion_matrix = confusion_matrix.matrix[:-1, :-1]  # Remove last row and column
@@ -145,20 +146,19 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             confusion_matrix = confusion_matrix.matrix
 
     acc = confusion_matrix.diagonal() / confusion_matrix.sum(-1)
+    print("acc", acc)
     acc = np.append(acc, confusion_matrix.diagonal().sum() / confusion_matrix.sum())
+    print("acc", acc)
     #if nan values are present and the corresponding diagonal value is 0, set accuracy to 0
-    #acc[np.isnan(acc)] = 0
+    acc[np.isnan(acc)] = 0
     #print("acc", acc)
-
+    wandb.log({"Confusion Matrix": wandb.Image(fig)})
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
         tab = wandb.Table(columns=gt_dataset.classes + ["all"], data=[acc])
         wandb.log({"Accuracies": tab})
     except Exception as e:
         print(f"WandB logging error: {e}")
-
-    #plt.savefig(f"{results_dir}/confusion_matrix.png")
-    #print(confusion_matrix)
 
     # Compute mAP if both datasets are DetectionDataset
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
@@ -167,25 +167,31 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         #print(map_result)
 
         #map_result.plot()
-        #fig = plt.gcf()  # grab last figure
+        fig = plt.gcf()  # grab last figure
         try:
             wandb.log({"mAP": wandb.Image(fig)})
         except Exception as e:
             print(f"WandB logging error: {e}")
         #return map result at 0.5
-        print(map_result["map_50"])
+        print(map_result.map50)
+        wandb.log({"mAP50": map_result.map50})
+
         #IoU
         # Calculate IoU matrix between predictions and targets
-        iou_matrix = sv.utils.box_iou_batch(
-            boxes_true=np.array([t.xyxy for t in targets]),
-            boxes_detection=np.array([p.xyxy for p in predictions])
-        )
+        from supervision.detection.utils import box_iou_batch
         
-        # Log IoU results
-        mean_iou = np.mean(np.max(iou_matrix, axis=0)) if iou_matrix.size > 0 else 0
-        print(f"Mean IoU: {mean_iou:.4f}")
+        # Collect all boxes from predictions and targets
+        pred_boxes = np.concatenate([pred.xyxy for pred in predictions])
+        target_boxes = np.concatenate([target.xyxy for target in targets])
+        pred_boxes = np.array(pred_boxes)
+        target_boxes = np.array(target_boxes)
+        # Calculate IoU matrix
+        iou_matrix = box_iou_batch(pred_boxes, target_boxes)
+        # Calculate mean IoU
+        mean_iou = np.nanmean(iou_matrix)
+        print(f"Mean IoU: {mean_iou}")
         try:
-            wandb.log({"Mean IoU": mean_iou})
+            wandb.log({"Mean IoU": mean_ious})
         except Exception as e:
             print(f"WandB logging error: {e}")
     return confusion_matrix, acc, map_result
