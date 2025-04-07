@@ -1,7 +1,7 @@
 #!/bin/sh 
 ### General options 
 ### -- specify queue -- 
-#BSUB -q gpuv100
+#BSUB -q gpua100
 ### -- set the job Name --
 #BSUB -J baseline_Florence
 ### -- ask for number of cores (default: 1) --
@@ -41,23 +41,24 @@ clear_gpu() {
 }
 
 python run_any3.py --section bottle --model Florence --tag bottle --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
-python run_any3.py --section hpc --model Florence --tag all_wood
 python run_any3.py --section wood --model Florence --tag wood --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
 python run_any3.py --model Florence --section wood --ontology "anomaly defect: defect" --tag defect
-python run_any3.py --section tire --model Florence --tag tire --ontology "car tire: car tire"
+python run_any3.py --section tires --model Florence --tag tire --ontology "car tire: car tire"
 python run_any3.py --section default --model Florence --tag default
 
 
 python run_any3.py --section default --model Florence --tag default_nms --nms "class_specific"
 python run_any3.py --section bottle --model Florence --tag bottle_nms --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
-#python run_any3.py --section hpc --model Florence --tag all_wood_nms
 python run_any3.py --section wood --model Florence --tag wood_nms --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
 python run_any3.py --model Florence --section wood --ontology "anomaly defect: defect" --tag defect_nms
-python run_any3.py --section tire --model Florence --tag tire_nmss --ontology "car tire: car tire"
+python run_any3.py --section tires --model Florence --tag tire_nmss --ontology "car tire: car tire"
 
 #"BAG_OF_WORDS" ontology
 python run_any3.py --section default --model Florence --tag default_bow --ontology "BAG_OF_WORDS"
 python run_any3.py --section bottle --model Florence --tag bottle_bow --ontology "BAG_OF_WORDS"
-#python run_any3.py --section hpc --model Florence --tag all_wood_bow --ontology "BAG_OF_WORDS"
 python run_any3.py --section wood --model Florence --tag wood_bow --ontology "BAG_OF_WORDS"
-python run_any3.py --section tire --model Florence --tag tire_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section tires --model Florence --tag tire_bow --ontology "BAG_OF_WORDS"
+
+python run_any3.py --section hpc --model Florence --tag all_wood
+python run_any3.py --section hpc --model Florence --tag all_wood_nms
+python run_any3.py --section hpc --model Florence --tag all_wood_bow --ontology "BAG_OF_WORDS"

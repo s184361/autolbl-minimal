@@ -218,6 +218,28 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         """
     return confusion_matrix, precision, recall, F1, map_result.map50, map_result.map50_95
 
+def log_evaluation_results(confusion_matrix, precision, recall, F1, map05,map05095):
+        print(f"Confusion matrix: {confusion_matrix}")
+        
+        print(f"recall: {recall}")
+        if len(recall) > 2:
+            # Take the last accuracy value
+            recall = recall[-1]
+            precision = precision[-1]
+            F1 = F1[-1]
+        else:
+            # If there is only one accuracy value, use it directly
+            recall = recall[0]
+            precision = precision[0]
+            F1 = F1[0]
+
+        wandb.log({                
+            "recall": recall,
+            "precision": precision,
+            "F1": F1,
+            "confusion_matrix": confusion_matrix,
+            })
+
 def compare_plot(dataset, gt_dataset, results_dir="results"):
     # Ensure confidence is set for all annotations in both datasets
     for key in dataset.annotations.keys():

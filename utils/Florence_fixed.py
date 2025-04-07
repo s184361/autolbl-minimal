@@ -18,7 +18,7 @@ from transformers import (AdamW, AutoModelForCausalLM, AutoProcessor,
                           get_scheduler)
 from autodistill.helpers import load_image, split_data
 from utils.embedding_ontology import EmbeddingOntologyImage
-from utils.check_labels import evaluate_detections
+from utils.check_labels import evaluate_detections,log_evaluation_results
 HOME = os.path.expanduser("~")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class NmsSetting(str, enum.Enum):
@@ -324,11 +324,12 @@ class Florence2Trainer(DetectionTargetModel):
                             detections = self.predict(img_pil)
                             # Evaluate the detections
                             try:
-                                confusion_matrix, acc, map_result = evaluate_detections(detections, train_dataset)
-                                print(f"Confusion Matrix: {confusion_matrix}")
-                                print(f"Accuracy: {acc}")
-                                # Log the accuracy
-                                wandb.log({"accuracy": acc})
+                                #evaluate the detections
+                                confusion_matrix, precision, recall, F1, map_result = evaluate_detections(detections, val_dataset)
+                                # Log the evaluation metrics to wandb
+                                log_evaluation_results(
+                                    confusion_matrix, precision, recall, F1, map_result
+                                )
                             except Exception as e:
                                 print(f"Error evaluating detections: {e}")
 
@@ -415,7 +416,8 @@ class Florence2Prompt(DetectionTargetModel):
             image = input
         
         # Use the optimized prompt if available
-        task = "<OD>"
+        #task = "<OD>"
+        task = "<CAPTION_TO_PHRASE_GROUNDING>"
         text = self.optimized_prompt
 
         inputs = self.processor(text=text, images=image, return_tensors="pt").to(self.DEVICE)
@@ -549,44 +551,31 @@ class Florence2Prompt(DetectionTargetModel):
                 
                 # After optimization, decode the prompt to see what it's learning
                 with torch.no_grad():
-                    # Extract images from inputs for prediction
-                    # Get raw images from batch for prediction
-                    batch_images = []
-                    for i in range(actual_batch_size):
-                        # Convert processed pixel_values back to images for evaluation
-                        # This is a simplified approach - ideally you'd track original images
-                        img_tensor = inputs["pixel_values"][i].cpu().numpy()
-                        # Process single image for prediction
-                        if i == 0:  # Just evaluate the first image for efficiency
-                            # Convert from tensor to PIL for prediction
-                            img_tensor = np.transpose(img_tensor, (1, 2, 0))
-                            # Normalize to 0-255 range
-                            img_tensor = (img_tensor * 255).astype(np.uint8)
-                            img_pil = Image.fromarray(img_tensor)
-                            # Get detections for this single image
-                            detections = self.predict(img_pil)
-                            # Evaluate the detections
-                            try:
-                                confusion_matrix, acc, map_result = evaluate_detections(detections, train_dataset)
-                                print(f"Confusion Matrix: {confusion_matrix}")
-                                print(f"Accuracy: {acc}")
-                                # Log the accuracy
-                                wandb.log({"accuracy": acc})
-                                TP = confusion_matrix[0, 0] / confusion_matrix.sum()
-                                FP = confusion_matrix[0, 1] / confusion_matrix.sum()
-                                FN = confusion_matrix[1, 0] / confusion_matrix.sum()
-                                F1 = 2 * TP / (2 * TP + FP + FN)
-                                print(f"F1 Score: {F1}")
-                                wandb.log(
-                                    {
-                                        "TP": TP,
-                                        "FP": FP,
-                                        "FN": FN,
-                                        "F1": F1,
-                                    }
-                                )
-                            except Exception as e:
-                                print(f"Error evaluating detections: {e}")
+                    image_paths = sv.list_files_with_extensions(
+                        directory=os.path.dirname(ds_valid.image_paths[0]),
+                        extensions=["jpg", "png"]
+                    )
+                    progress_bar = tqdm(image_paths, desc="Labeling images")
+                    detections_map = {}
+                    for f_path in progress_bar:
+                        progress_bar.set_description(desc=f"Labeling {f_path}", refresh=True)
+
+                        image = cv2.imread(f_path)
+                        detections = self.predict(image)
+                        detections_map[f_path] = detections
+                    dataset = sv.DetectionDataset(
+                        ["defect"], image_paths, detections_map
+                    )
+                    try:
+                        #check if the gt_dataset is correct
+                        confusion_matrix, precision, recall, F1, map50, map50_95=evaluate_detections(dataset, val_dataset)
+                        # Log the evaluation metrics to wandb
+                        print(f"Precision: {precision}, Recall: {recall}, F1: {F1}, mAP50: {map50}, mAP50-95: {map50_95}")
+                        log_evaluation_results(
+                            confusion_matrix, precision, recall, F1, map50, map50_95
+                        )
+                    except Exception as e:
+                        print(f"Error evaluating detections: {e}")
                             # Try to decode prompt embeddings to see current prompt
                     # This is approximate as direct inversion isn't always perfect
                     logits = self.model.get_input_embeddings().weight.mm(prompt_embeds[0].T)

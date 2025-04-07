@@ -375,3 +375,4 @@ images_local/
 *.err
 *.out
 *.csv
+hpc/tmp/

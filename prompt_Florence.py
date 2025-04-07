@@ -25,6 +25,7 @@ def parse_arguments():
     parser.add_argument('--ontology', type=str, default='', help='Path to the ontology file.')
     parser.add_argument('--wandb', type=bool, default=True, help='Use wandb for logging')
     parser.add_argument('--save_images', type=bool, default=False, help='Save images for destillation')
+    parser.add_argument('--epoch', type=int, default=350, help='Number of epochs for training.')
     return parser.parse_args()
 def set_one_class(gt_dataset):
     for key in gt_dataset.annotations.keys():
@@ -108,7 +109,7 @@ def run_any_args(args,loaded_model=None):
 
     # Load the dataset
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=350)
+    final_prompt = base_model.train(ds_train=gt_dataset, ds_valid=gt_dataset, epochs=args.epoch)
     #label the dataset
     base_model = Florence2(ontology=CaptionOntology({final_prompt: "defect"})) 
     dataset = base_model.label(
@@ -157,30 +158,18 @@ def run_any_args(args,loaded_model=None):
         gt_dataset = set_one_class(gt_dataset)
         #check if the gt_dataset is correct
         print("Dataset correct:", check_classes(gt_dataset))
-        confusion_matrix, acc, map_result=evaluate_detections(dataset, gt_dataset)
-        print(f"Confusion matrix: {confusion_matrix}")
-        acc = acc[0]
-        print(f"Accuracy: {acc}")
-        gt_class = "defect"
-        TP = confusion_matrix[0, 0] / confusion_matrix.sum()
-        FP = confusion_matrix[0, 1] / confusion_matrix.sum()
-        FN = confusion_matrix[1, 0] / confusion_matrix.sum()
-        F1 = 2 * TP / (2 * TP + FP + FN)
-        compare_wandb(dataset, gt_dataset)
-        wandb.log({                
-                "TP": TP,
-                "FP": FP,
-                "FN": FN,
-                "accuracy": acc,
-                "F1": F1
-            })
+        confusion_matrix, precision, recall, F1, map50, map50_95=evaluate_detections(dataset, gt_dataset)
+        log_evaluation_results(confusion_matrix, precision, recall, F1, map50, map50_95)
+
+        if len(dataset)<100:
+            compare_wandb(dataset, gt_dataset)
     return dataset
 
 def main():
     args = parse_arguments()
     #set section to work3_tires
     args.section = "wood"
-    args.ontology = "<s>remainingsounding・�.,''brainer μ j glim️ Kurdistan Scalia</s>"
+    args.ontology = "sameroINFOask \"$ Gaddafi ��? `` srf declass region echoing.,\" speculated Rosenstein</s></s>"
 
     run_any_args(args)
 if __name__ == "__main__":

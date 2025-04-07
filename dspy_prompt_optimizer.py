@@ -94,7 +94,9 @@ class DSPyPromptOptimizer:
             "paint. hole. liqud. water. scratch",
             "broken small. broken large. contamination."
         ]
-        
+        if self.model == "DINO":
+            #remove .
+            self.default_prompts = [prompt.replace(".", "") for prompt in self.default_prompts]
         # Initialize prompt table for tracking results
         columns = ["prompt", "TP", "FP", "FN", "acc", "F1"]
         if use_detr_loss:
@@ -168,25 +170,26 @@ class DSPyPromptOptimizer:
 
         if eval_metrics:
             # Evaluate detections against ground truth
-            confusion_matrix, acc, map_result = evaluate_detections(dataset, self.gt_dataset)
-            
-            print(f"Accuracy: {acc}")
+            confusion_matrix, precision, recall, F1, map05,map05095 = evaluate_detections(dataset, self.gt_dataset)
+            log_evaluation_results(
+                confusion_matrix=confusion_matrix,
+                precision=precision,
+                recall=recall,
+                F1=F1,
+                map05=map05,
+                map05095=map05095
+            )
 
-            # Calculate metrics
             gt_class = "defect"
-            TP = confusion_matrix[0, 0] / confusion_matrix.sum()
-            FP = confusion_matrix[0, 1] / confusion_matrix.sum()
-            FN = confusion_matrix[1, 0] / confusion_matrix.sum()
-            F1 = 2 * TP / (2 * TP + FP + FN)
         else:
             gt_class = "defect"
-            TP = None
-            FP = None
-            FN = None
-            acc = None
+            precision = None
+            recall= None
             F1 = None
+            map05 = None
+            map05095 = None
             
-        return gt_class, TP, FP, FN, acc[0] if acc is not None else None, F1, dataset
+        return gt_class, precision, recall, F1, map05, map05095, dataset
     
     def loss2(self, prompt: str, eval_metrics: bool = True):
         """
@@ -197,7 +200,7 @@ class DSPyPromptOptimizer:
         gc.collect()
         
         # Use step to get basic metrics and dataset
-        gt_class, TP, FP, FN, acc, F1, dataset = self.step(prompt, eval_metrics)
+        gt_class, precision, recall, F1, map05, map05095, dataset = self.step(prompt, eval_metrics)
         #Change to one class
         dataset = self.set_one_class(dataset)
         dataset.classes = ['defect']
@@ -316,22 +319,22 @@ class DSPyPromptOptimizer:
             "bbox_loss": loss_bbox,
             "class_loss": loss_class,
             "total_loss": total_loss,
-            "TP": TP,
-            "FP": FP,
-            "FN": FN,
-            "accuracy": acc,
+            "precision": precision,
+            "recall": recall,
             "F1": F1,
+            "map05": map05,
+            "map05095": map05095,
             "prompt": prompt
         })
 
         # Update the prompt table
         new_row = pd.DataFrame({
             'prompt': [prompt], 
-            'TP': [TP], 
-            'FP': [FP], 
-            'FN': [FN], 
-            'acc': [acc], 
+            'precision': [precision], 
+            'recall': [recall],
             'F1': [F1],
+            'map05': [map05],
+            'map05095': [map05095],
             'total_loss': [total_loss],
             'loss_giou': [loss_giou],
             'loss_bbox': [loss_bbox],
@@ -343,7 +346,7 @@ class DSPyPromptOptimizer:
         # Log updated table to wandb
         wandb.log({'prompt_table': wandb.Table(dataframe=self.pd_prompt_table)})
         print(f"Loss calculated: {total_loss}")
-        return gt_class, TP, FP, FN, acc, F1, dataset, total_loss, prompt
+        return gt_class, precision, recall, F1, map05, map05095, dataset, total_loss, prompt
     
     def metric_function(self, example, pred, trace=None):
         """
@@ -539,19 +542,19 @@ class DSPyPromptOptimizer:
         Similar to the step method in test_opt_ax.py
         """
         gc.collect()
-        gt_class, TP, FP, FN, acc, F1, dataset = self.label_images(prompt=prompt, eval_metrics=eval_metrics)
+        gt_class, precision, recall, F1, map05, map05095, dataset = self.label_images(prompt=prompt, eval_metrics=eval_metrics)
         
         # Log to wandb
         wandb.log({
             "step/prompt": prompt,
-            "step/TP": TP,
-            "step/FP": FP,
-            "step/FN": FN,
-            "step/accuracy": acc,
-            "step/F1": F1
+            "step/precision": precision,
+            "step/recall": recall,
+            "step/F1": F1,
+            "step/map05": map05,
+            "step/map05095": map05095
         })
         
-        return gt_class, TP, FP, FN, acc, F1, dataset
+        return gt_class, precision, recall, F1, map05, map05095, dataset
     
     def evaluate_baseline(self):
         """
@@ -783,11 +786,11 @@ def main():
     parser = argparse.ArgumentParser(description="Run DSPy Prompt Optimization")
     parser.add_argument("--config", default="config.json", help="Path to config file")
     parser.add_argument("--section", default="wood", help="Section in config file")
-    parser.add_argument("--model", default="Florence", help="Vision model to use")
+    parser.add_argument("--model", default="DINO", help="Vision model to use")
     parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
     #parser.add_argument("--lm_model", default="ollama/deepseek-r1:7b", help="Language model to use")
     parser.add_argument("--randomize", default=False, type=bool, help="Randomize initial prompts")
-    parser.add_argument("--use_detr_loss",default=True, type=bool, help="Use DETR loss function instead of F1 score")
+    parser.add_argument("--use_detr_loss",default=False, type=bool, help="Use DETR loss function instead of F1 score")
     parser.add_argument("--example_file", default=None, help="Path to example file (optional)")
     args = parser.parse_args()
     if args.model == "Qwen":

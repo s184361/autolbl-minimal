@@ -3,22 +3,16 @@ import json
 import os
 import re
 import torch
-import cv2
+#import cv2
 import supervision as sv
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from utils.check_labels import *
 from autodistill.detection import CaptionOntology
 # from autodistill_grounding_dino import GroundingDINO
-from utils.grounding_dino_model import GroundingDINO
 from utils.Florence_fixed import Florence2
-try:
-    from utils.qwen25_model import Qwen25VL
-    #from autodistill_sam_hq.samhq_model import SAMHQ
-    #from utils.metaclip_model import MetaCLIP
-except:
-    pass
+
 from utils.composed_detection_model import ComposedDetectionModel2
-from utils.detection_base_model import DetectionBaseModel
+#from utils.detection_base_model import DetectionBaseModel
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.wandb_utils import compare_plot as compare_wandb
 import wandb
@@ -53,9 +47,6 @@ def run_any_args(args,loaded_model=None):
     with open(args.config, 'r') as f:
         config = json.load(f)[args.section]
 
-    # Initialize wandb
-    #all args to tags
-    #
     if args.wandb:
         tags = []
         for key, value in vars(args).items():
@@ -70,7 +61,8 @@ def run_any_args(args,loaded_model=None):
             tags.append(tag)
         wandb.login()
         wandb.init(project="Thesis", name=f"{args.model}_{args.tag}", tags=tags, config=config,group=args.group)
-
+        #update the config with the args
+        wandb.config.update(args)
     # Reset folders
     try:
         print("Resetting folders")
@@ -88,12 +80,6 @@ def run_any_args(args,loaded_model=None):
         extensions=["bmp", "jpg", "jpeg", "png"]
     )
     print('Image count:', len(image_paths))
-
-    # titles = [os.path.splitext(os.path.basename(image_path))[0] for image_path in image_paths[:config['SAMPLE_SIZE']]]
-    # images = [cv2.imread(image_path) for image_path in image_paths[:config['SAMPLE_SIZE']]]
-    # plt.ion()
-    # sv.plot_images_grid(images=images, titles=titles, grid_size=config['SAMPLE_GRID_SIZE'], size=config['SAMPLE_PLOT_SIZE'])
-    # plt.savefig(os.path.join(config.get('RESULTS_DIR_PATH', 'results'), "sample_images_grid.png"))
 
     if args.ontology in ["", None]:
         # Define ontology
@@ -230,20 +216,28 @@ def run_any_args(args,loaded_model=None):
         print(ont_list)
     # Initialize the model
     if args.model == "DINO":
+        from utils.grounding_dino_model import GroundingDINO
         base_model = GroundingDINO(ontology=CaptionOntology(ont_list))
     elif args.model == "Florence":
+        if args.wandb:
+            from autodistill_florence_2 import Florence2
         base_model = Florence2(ontology=CaptionOntology(ont_list))
     elif args.model == "SAMHQ":
+        from autodistill_sam_hq.samhq_model import SAMHQ
         base_model = SAMHQ(CaptionOntology(ontology=ont_list))
     elif args.model == "Combined":
+        from utils.grounding_dino_model import GroundingDINO
+        from utils.metaclip_model import MetaCLIP
         detection_model = GroundingDINO(ontology=CaptionOntology({config["PROMPT"]: "defect"}))
         classification_model = MetaCLIP(ontology=CaptionOntology(ont_list))
         base_model = ComposedDetectionModel2(detection_model=detection_model, classification_model=classification_model)
     elif args.model == "Combined2":
+        from utils.metaclip_model import MetaCLIP
         detection_model = Florence2(ontology=CaptionOntology({config["PROMPT"]: "defect"}))
         classification_model = MetaCLIP(ontology=CaptionOntology(ont_list))
         base_model = ComposedDetectionModel2(detection_model=detection_model, classification_model=classification_model)
     elif args.model == "MetaCLIP":
+        from utils.metaclip_model import MetaCLIP
         HOME2 = os.getcwd()
         images_to_classes = {
             os.path.join(f"{HOME2}/croped_images", "100000010_live knot.jpg"): "knot",
@@ -267,6 +261,7 @@ def run_any_args(args,loaded_model=None):
         #update the ontology
         base_model.ontology = CaptionOntology(ont_list) 
     elif args.model == "Qwen":
+        from utils.qwen25_model import Qwen25VL
         print("Load Qwen model")
         base_model = Qwen25VL(ontology=CaptionOntology(ont_list),hf_token="os.getenv("HF_TOKEN", "")")
 

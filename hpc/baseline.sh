@@ -1,7 +1,7 @@
 #!/bin/sh 
 ### General options 
 ### -- specify queue -- 
-#BSUB -q gpua100
+#BSUB -q gpuv100
 ### -- set the job Name --
 #BSUB -J opt_ax_wood_bert_pad_rand
 ### -- ask for number of cores (default: 1) --
@@ -40,24 +40,24 @@ clear_gpu() {
     sleep 5
 }
 
-python run_any3.py --section bottle --model DINO --tag bottle --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
-python run_any3.py --section hpc --model DINO --tag all_wood
-python run_any3.py --section wood --model DINO --tag wood --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
-python run_any3.py --model DINO --section wood --ontology "anomaly defect: defect" --tag defect
-python run_any3.py --section tire --model DINO --tag tire --ontology "car tire: car tire"
-python run_any3.py --section default --model DINO --tag default
+python run_any3.py --section bottle --model Qwen --tag bottle --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
+python run_any3.py --section hpc --model Qwen --tag all_wood
+python run_any3.py --section wood --model Qwen --tag wood --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
+python run_any3.py --model Qwen --section wood --ontology "anomaly defect: defect" --tag defect
+python run_any3.py --section tire --model Qwen --tag tire --ontology "car tire: car tire"
+python run_any3.py --section default --model Qwen --tag default
 
 
-python run_any3.py --section default --model DINO --tag default_nms --nms "class_specific"
-python run_any3.py --section bottle --model DINO --tag bottle_nms --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
-python run_any3.py --section hpc --model DINO --tag all_wood_nms
-python run_any3.py --section wood --model DINO --tag wood_nms --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
-python run_any3.py --model DINO --section wood --ontology "anomaly defect: defect" --tag defect_nms
-python run_any3.py --section tire --model DINO --tag tire_nmss --ontology "car tire: car tire"
+python run_any3.py --section default --model Qwen --tag default_nms --nms "class_specific"
+python run_any3.py --section bottle --model Qwen --tag bottle_nms --ontology "broken_large: broken_large, broken_small: broken_small, contamination: contamination"
+python run_any3.py --section hpc --model Qwen --tag all_wood_nms
+python run_any3.py --section wood --model Qwen --tag wood_nms --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
+python run_any3.py --model Qwen --section wood --ontology "anomaly defect: defect" --tag defect_nms
+python run_any3.py --section tire --model Qwen --tag tire_nmss --ontology "car tire: car tire"
 
 #"BAG_OF_WORDS" ontology
-python run_any3.py --section default --model DINO --tag default_bow --ontology "BAG_OF_WORDS"
-python run_any3.py --section bottle --model DINO --tag bottle_bow --ontology "BAG_OF_WORDS"
-python run_any3.py --section hpc --model DINO --tag all_wood_bow --ontology "BAG_OF_WORDS"
-python run_any3.py --section wood --model DINO --tag wood_bow --ontology "BAG_OF_WORDS"
-python run_any3.py --section tire --model DINO --tag tire_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section default --model Qwen --tag default_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section bottle --model Qwen --tag bottle_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section hpc --model Qwen --tag all_wood_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section wood --model Qwen --tag wood_bow --ontology "BAG_OF_WORDS"
+python run_any3.py --section tire --model Qwen --tag tire_bow --ontology "BAG_OF_WORDS"

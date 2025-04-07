@@ -29,7 +29,7 @@ class Qwen25VL(DetectionBaseModel):
         model_id_or_path = "Qwen/Qwen2.5-VL-7B-Instruct"
         revision = "refs/heads/main"
         trust_remote_code = True
-        cache_dir = None
+        cache_dir = "/work3/s184361/hub"
         device = "auto"
         if hf_token:
             os.environ["HF_TOKEN"] = hf_token
@@ -48,9 +48,9 @@ class Qwen25VL(DetectionBaseModel):
             trust_remote_code=True,
             device_map="auto",
             torch_dtype=torch.bfloat16,
-            cache_dir=None,
+            cache_dir=cache_dir,
         )
-        self.model.to(self.device)
+        #self.model.to(self.device)
         
         self.max_new_tokens = 1024
         self.system_message = None
