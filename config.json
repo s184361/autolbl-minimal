@@ -146,7 +146,7 @@
         "IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/images",
         "DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/data.yaml",
         "GT_ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/BoundingBoxes2",
-        "GT_IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/images",
+        "GT_IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl2/images_local",
         "GT_DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/data.yaml",
         "DATASET_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset",
         "RESULTS_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/results",

@@ -3,6 +3,10 @@ import json
 import argparse
 import gc
 
+# Configure matplotlib to use non-interactive backend to prevent popup windows
+import matplotlib
+matplotlib.use('Agg')
+
 import pandas as pd
 import wandb
 import dspy
@@ -795,7 +799,7 @@ def main():
     parser.add_argument("--config", default="config.json", help="Path to config file")
     parser.add_argument("--section", default="local", help="Section in config file")
     parser.add_argument("--model", default="DINO", help="Vision model to use")
-    parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
+    parser.add_argument("--lm_model", default="ollama/gemma3:270m", help="Language model to use")
     #parser.add_argument("--lm_model", default="ollama/deepseek-r1:7b", help="Language model to use")
     parser.add_argument("--randomize", default=False, type=bool, help="Randomize initial prompts")
     parser.add_argument("--use_detr_loss",default=False, type=bool, help="Use DETR loss function instead of F1 score")
