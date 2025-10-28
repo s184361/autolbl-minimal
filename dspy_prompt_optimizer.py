@@ -9,7 +9,14 @@ import dspy
 import supervision as sv
 import torch
 from torch.nn import functional as F
-from ultralytics.models.utils.loss import DETRLoss
+try:
+    from ultralytics.utils.loss import E2EDetectLoss as DETRLoss
+except ImportError:
+    try:
+        from ultralytics.models.utils.loss import DETRLoss
+    except ImportError:
+        print("Warning: Could not import DETRLoss. Using placeholder.")
+        DETRLoss = None
 from utils.check_labels import *
 from run_any2 import run_any_args
 from run_any3 import run_any_args as run_qwen
@@ -36,7 +43,7 @@ class Prompt_Design(dspy.Signature):
 
 
 class DSPyPromptOptimizer:
-    def __init__(self, config_path='config.json', section='wood', model='DINO', 
+    def __init__(self, config_path='config.json', section='local', model='DINO', 
                  lm_model="ollama/deepseek-r1:1.5b", randomize=False, use_detr_loss=True,loaded_model=None):
         """
         Initialize the DSPy Prompt Optimizer
@@ -63,7 +70,8 @@ class DSPyPromptOptimizer:
                 f"randomize={self.randomize}", f"[{self.initial_prompt}]",
                 f"use_detr_loss={self.use_detr_loss}"]
         
-        self.run = wandb.init(project="dspy-wood-defects", 
+        self.run = wandb.init(project="dspy-wood-defects",
+                             mode="offline",  # Run in offline mode to avoid login issues
                              config={
                                  "optimizer": "MIPROv2",
                                  "model": self.model,
@@ -785,7 +793,7 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run DSPy Prompt Optimization")
     parser.add_argument("--config", default="config.json", help="Path to config file")
-    parser.add_argument("--section", default="wood", help="Section in config file")
+    parser.add_argument("--section", default="local", help="Section in config file")
     parser.add_argument("--model", default="DINO", help="Vision model to use")
     parser.add_argument("--lm_model", default="ollama/gemma3:1b", help="Language model to use")
     #parser.add_argument("--lm_model", default="ollama/deepseek-r1:7b", help="Language model to use")

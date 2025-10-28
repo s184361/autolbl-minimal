@@ -141,7 +141,7 @@
     },
     "local": {
         "HOME": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl",
-        "IMAGE_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/images",
+        "IMAGE_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl2/images_local",
         "ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/labels",
         "IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/images",
         "DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/data.yaml",

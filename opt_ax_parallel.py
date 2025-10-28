@@ -36,7 +36,14 @@ from run_any2 import run_any_args
 from utils.check_labels import *
 from utils.wandb_utils import compare_plot as compare_wandb_plot
 from transformers import BertTokenizerFast
-from ultralytics.models.utils.loss import DETRLoss
+try:
+    from ultralytics.utils.loss import E2EDetectLoss as DETRLoss
+except ImportError:
+    try:
+        from ultralytics.models.utils.loss import DETRLoss
+    except ImportError:
+        print("Warning: Could not import DETRLoss. Using placeholder.")
+        DETRLoss = None
 global global_optimizer
 
 def parse_args():  # Fixed typo in function name
