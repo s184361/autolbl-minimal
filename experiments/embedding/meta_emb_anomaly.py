@@ -2,7 +2,7 @@ import torch
 from transformers import BertTokenizerFast
 from scipy.optimize import differential_evolution
 import numpy as np
-from utils.metaclip_model_classifier import MetaCLIP
+from autolbl.models.metaclip_classifier import MetaCLIP
 from autodistill.detection import CaptionOntology
 import PIL
 import os

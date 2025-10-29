@@ -10,23 +10,22 @@ import dspy
 from PIL import Image
 import json
 import supervision as sv
-from utils.check_labels import *
-from run_any3 import run_any_args
+from autolbl.evaluation.metrics import *
+from autolbl.cli.infer import run_any_args
 import argparse
 import wandb
-from utils.wandb_utils import *
+from autolbl.visualization.wandb import *
 import pandas as pd
 import subprocess
 import torch
 import gc
 import numpy as np  # Ensure numpy is imported
-from utils.check_labels import set_one_class, check_classes
+from autolbl.evaluation.metrics import set_one_class, check_classes
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 from autodistill.detection import CaptionOntology
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-
 
 def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str,model: str = "DINO", section: str = "local"):
     """

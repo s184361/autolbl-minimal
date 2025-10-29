@@ -21,10 +21,11 @@ except ImportError:
     except ImportError:
         print("Warning: Could not import DETRLoss. Using placeholder.")
         DETRLoss = None
-from utils.check_labels import *
-from run_any2 import run_any_args
-from run_any3 import run_any_args as run_qwen
-from utils.wandb_utils import *
+from autolbl.evaluation.metrics import *
+# Note: run_any2 doesn't exist in new structure - may need to be updated
+from autolbl.cli.infer import run_any_args
+from autolbl.cli.infer import run_any_args as run_qwen
+from autolbl.visualization.wandb import *
 from dspy.teleprompt import MIPROv2
 from dspy.evaluate import Evaluate 
 
@@ -807,7 +808,7 @@ def main():
     args = parser.parse_args()
     if args.model == "Qwen":
         # Set up Qwen model
-        from utils.qwen25_model import Qwen25VL
+        from autolbl.models.qwen import Qwen25VL
         from autodistill.detection import CaptionOntology
         q25 = Qwen25VL(ontology=CaptionOntology({"defect":"defect"}),hf_token="os.getenv("HF_TOKEN", "")")
     else:

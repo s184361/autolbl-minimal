@@ -7,12 +7,12 @@ from io import BytesIO
 
 import json
 import supervision as sv
-from utils.check_labels import *
-from run_any3 import run_any_args
+from autolbl.evaluation.metrics import *
+from autolbl.cli.infer import run_any_args
 
 import argparse
 import wandb
-from utils.wandb_utils import *
+from autolbl.visualization.wandb import *
 import pandas as pd
 import os
 import subprocess
