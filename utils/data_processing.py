@@ -1,5 +1,8 @@
-import yaml
+"""Utilities for processing and converting annotation data."""
+
 import os
+
+import yaml
 
 
 def defect_annotations(gt_annotations_directory_path, gt_data_yaml_path, defect_annotation_path):
@@ -31,11 +34,11 @@ def defect_annotations(gt_annotations_directory_path, gt_data_yaml_path, defect_
             # Filter annotations to keep only defect classes
             defect_lines = []
             for line in lines:
-                #replace the first part with 1
+                # Replace the first part with 1
                 parts = line.strip().split()
                 if len(parts) > 0:
-                    # Assuming the defect class is represented by the first class in the class_names list
-                    parts[0] = "1"  # Replace the class ID with 1 for defect class
+                    # Replace all class IDs with 1 (defect class)
+                    parts[0] = "1"
                     defect_lines.append(" ".join(parts) + "\n")
 
             # Save the new defect-only annotation file
@@ -43,7 +46,6 @@ def defect_annotations(gt_annotations_directory_path, gt_data_yaml_path, defect_
                 new_file_path = os.path.join(defect_annotation_path, filename)
                 with open(new_file_path, "w") as new_file:
                     new_file.writelines(defect_lines)
-
 
 def main():
     """

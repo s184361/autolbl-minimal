@@ -19,6 +19,7 @@ from transformers import (AdamW, AutoModelForCausalLM, AutoProcessor,
 from autodistill.helpers import load_image, split_data
 from utils.embedding_ontology import EmbeddingOntologyImage
 from utils.check_labels import evaluate_detections,log_evaluation_results
+
 HOME = os.path.expanduser("~")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class NmsSetting(str, enum.Enum):
@@ -308,7 +309,7 @@ class Florence2Trainer(DetectionTargetModel):
                 with torch.no_grad():
                     # Extract images from inputs for prediction
                     # Get raw images from batch for prediction
-                    batch_images = []
+                    actual_batch_size = inputs["pixel_values"].shape[0]
                     for i in range(actual_batch_size):
                         # Convert processed pixel_values back to images for evaluation
                         # This is a simplified approach - ideally you'd track original images

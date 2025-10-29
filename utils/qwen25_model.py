@@ -6,7 +6,6 @@ from PIL import Image
 from typing import Optional, Tuple, Union
 
 from maestro.trainer.models.qwen_2_5_vl.inference import predict_with_inputs
-from maestro.trainer.models.qwen_2_5_vl.checkpoints import load_model, OptimizationStrategy
 from maestro.trainer.models.qwen_2_5_vl.loaders import format_conversation
 from maestro.trainer.common.utils.device import parse_device_spec
 from qwen_vl_utils import process_vision_info
@@ -15,9 +14,8 @@ import supervision as sv
 from utils.core import Detections
 from utils.detection_base_model import DetectionBaseModel
 from autodistill.helpers import load_image
-from autodistill.detection import (CaptionOntology,
-                                   DetectionTargetModel)
-from transformers import BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration, Qwen2_5_VLProcessor
+from autodistill.detection import (CaptionOntology)
+from transformers import Qwen2_5_VLForConditionalGeneration, Qwen2_5_VLProcessor
 class Qwen25VL(DetectionBaseModel):
     ontology: CaptionOntology
     

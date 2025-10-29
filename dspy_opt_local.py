@@ -86,7 +86,6 @@ def main():
     # Initialize wandb
     wandb.login()
     run = wandb.init(project="dspy", mode="offline")
-    # load_dotenv()
 
     # Optional
     os.environ["OPENAI_API_KEY"] = "your_openai_api_key"
@@ -138,8 +137,7 @@ def main():
         best_prompt=best_prompt,
         best_score=best_score,
     )
-    # wandb_prompt_table = wandb.Table(columns=["Iteration", "prompt","feedback", "class", "TP", "FP", "FN", "Accuracy", "F1"])
-    # wandb.log({"Prompt Iterations": wandb_prompt_table})
+
     df = pd.DataFrame(
         columns=[
             "Iteration",
@@ -169,8 +167,7 @@ def main():
         if current_score > best_score:
             best_prompt = current_prompt
             best_score = current_score
-        # process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
-        # dspy.configure(lm=lm)
+
         result = check_and_revise_prompt(
             desired_score=1.0,
             current_score=current_score,

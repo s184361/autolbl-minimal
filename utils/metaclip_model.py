@@ -2,11 +2,9 @@ import os
 from dataclasses import dataclass
 
 import numpy as np
-import open_clip
 import supervision as sv
 import torch
 from autodistill.detection import CaptionOntology, DetectionBaseModel
-from autodistill.helpers import load_image
 from PIL import Image
 from utils.embedding_ontology import EmbeddingOntologyImage
 import torch
@@ -20,19 +18,12 @@ from transformers import (
 HOME = os.path.expanduser("~")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# if not os.path.exists(f"{HOME}/.cache/autodistill/open_clip/b32_400m.pt"):
-#    os.makedirs(f"{HOME}/.cache/autodistill/open_clip", exist_ok=True)
-#    os.system(
-#        f"wget https://dl.fbaipublicfiles.com/MMPT/metaclip/b32_400m.pt -P {HOME}/.cache/autodistill/open_clip"
-#    )
-
-
 @dataclass
 class MetaCLIP(DetectionBaseModel):
     ontology: CaptionOntology
 
     def __init__(self, ontology: CaptionOntology):
-        # self.model, _, self.preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained="laion2b_s34b_b79k")
+
         self.preprocess = AutoProcessor.from_pretrained("facebook/metaclip-b16-fullcc2.5b")
         model = AutoModelForZeroShotImageClassification.from_pretrained(
             "facebook/metaclip-b16-fullcc2.5b", torch_dtype=torch.float16
@@ -73,10 +64,8 @@ class MetaCLIP(DetectionBaseModel):
         )
 
     def embed_image(self, input: str) -> torch.Tensor:
-        #image = Image.open(input)
 
         inputs = self.preprocess(images=input, return_tensors="pt", padding=True).to(DEVICE)
-        # inputs = self.preprocess(image).unsqueeze(0).to(DEVICE)
         with torch.no_grad():
             with torch.amp.autocast('cuda'): 
                 outputs = self.model.get_image_features(**inputs)

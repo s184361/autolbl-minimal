@@ -169,11 +169,7 @@ def main():
     gt_dataset = load_dataset(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
     print("GT Dataset size:", len(gt_dataset))
     compare_classes(gt_dataset, dataset)
-    #compare_image_keys(gt_dataset, dataset)
     evaluate_detections(dataset, gt_dataset)
-    #compare_plot(dataset, gt_dataset)
-
-
 
     # Finish the wandb run
     wandb.finish()

@@ -353,9 +353,6 @@ def run_any_args(args,loaded_model=None):
 
 def main():
     args = parse_arguments()
-    #set section to work3_tires
-    #args.section = "wood"
-    #args.ontology = "pumps tensed oceanuses [unused810] [unused368] bombay wavelengthsctuseriantlanurianbant yells"
 
     run_any_args(args)
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from PIL import Image
 import json
 import supervision as sv
 from utils.check_labels import *
-from run_any2 import run_any_args
+from run_any3 import run_any_args
 import argparse
 import wandb
 from utils.wandb_utils import *
@@ -14,14 +14,14 @@ import torch
 import gc
 import numpy as np  # Ensure numpy is imported
 from utils.check_labels import set_one_class, check_classes
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
+from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 from autodistill.detection import CaptionOntology
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 
-def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str,model: str = "Florence", section: str = "wood"):
+def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str,model: str = "DINO", section: str = "local"):
     """
     Label images using a specified model and prompt.
     Args:
@@ -47,6 +47,7 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str,mode
         ontology=f"{prompt}: defect",
         wandb=False,
         save_images=False,
+        nms="no_nms",
     )
     dataset = run_any_args(args)
     dataset = set_one_class(dataset)
@@ -164,9 +165,9 @@ def process_detection_prompt(check_and_revise_prompt, prompt):
             elif "no" in raw_response:
                 return "no"
             else:
-                return "no"  # Default to "no" if unclear
+                return "yes"  # Default to "yes" if unclear
         except:
-            return "no"  # Default to "no" on any error
+            return "yes"  # Default to "yes" on any error
 
 def log_wandb_metrics(metrics):
     """
@@ -280,11 +281,11 @@ def parse_args():
     # Configuration
     parser.add_argument('--config', type=str, default="config.json",
                         help="Path to config file")
-    parser.add_argument('--section', type=str, default="wood",
+    parser.add_argument('--section', type=str, default="local",
                         help="Section in config file to use")
     
     # Logging and output options
-    parser.add_argument('--wandb', action='store_true', default=True,
+    parser.add_argument('--wandb', action='store_true', default=False,
                         help="Enable Weights & Biases logging")
     parser.add_argument('--no-wandb', action='store_false', dest='wandb',
                         help="Disable Weights & Biases logging")
@@ -299,8 +300,6 @@ def parse_args():
                         help="Model to use for autodistill (default: Qwen)")
     parser.add_argument('--save_images', action='store_true', default=False,
                         help="Save images for distillation")
-    parser.add_argument('--section', type=str, default="wood",
-                        help="Section in config file to use")
     parser.add_argument('--reload', action='store_true', default=False,
                         help="Reload the dataset from YOLO format")
     
@@ -313,10 +312,19 @@ def main():
     
     # Initialize wandb if enabled
     if args.wandb:
-        wandb.login()
-        
-        run = wandb.init(project="review_annotations", name=f"Qwen_Review_{args.model_size}", tags=["review", args.section])
-        wandb.config.update(args)
+        try:
+            wandb.login()
+            run = wandb.init(
+                project="review_annotations",
+                name=f"Qwen_Review_{args.model_size}",
+                tags=["review", args.section]
+            )
+            wandb.config.update(args)
+            print("WandB initialized successfully")
+        except Exception as e:
+            print(f"Warning: Could not initialize WandB: {e}")
+            print("Continuing without WandB logging...")
+            args.wandb = False
     
     gc.collect()
     torch.cuda.empty_cache()
@@ -354,7 +362,7 @@ def main():
     
     # Configure model initialization based on flash attention setting
     if args.flash_attn:
-        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        model = Qwen2VLForConditionalGeneration.from_pretrained(
             model_id,
             torch_dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
@@ -362,7 +370,7 @@ def main():
             trust_remote_code=True
         )
     else:
-        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        model = Qwen2VLForConditionalGeneration.from_pretrained(
             model_id,
             torch_dtype=torch.bfloat16,
             device_map="auto",

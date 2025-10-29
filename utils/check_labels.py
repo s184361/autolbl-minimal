@@ -1,24 +1,39 @@
-import supervision as sv
+"""Utilities for checking, evaluating, and processing YOLO detection labels and datasets."""
+
 import os
-import numpy as np
 import re
-import yaml
+import shutil
+import subprocess
+from typing import List, Optional, Tuple
+
+import cv2
 import matplotlib
 import matplotlib.pyplot as plt
-import cv2
+import numpy as np
 import pandas as pd
-import shutil  # Import shutil for file operations
-from autodistill.utils import plot
+import supervision as sv
 import wandb
-import shutil
-from typing import Callable, List, Optional, Tuple
-import subprocess
-from joblib import Parallel, delayed
+import yaml
+from autodistill.utils import plot
+
+
 def print_supervision_version():
+    """Print the version of the supervision library."""
     print("Supervision version:", sv.__version__)
 
 
 def load_dataset(images_directory_path, annotations_directory_path, data_yaml_path):
+    """
+    Load a YOLO format detection dataset.
+    
+    Args:
+        images_directory_path: Path to directory containing images
+        annotations_directory_path: Path to directory containing YOLO annotations
+        data_yaml_path: Path to data.yaml file containing class names
+        
+    Returns:
+        sv.DetectionDataset: Loaded dataset
+    """
     return sv.DetectionDataset.from_yolo(
         images_directory_path=images_directory_path,
         annotations_directory_path=annotations_directory_path,
@@ -27,6 +42,16 @@ def load_dataset(images_directory_path, annotations_directory_path, data_yaml_pa
 
 
 def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
+    """
+    Update label files by converting custom format to YOLO format.
+    
+    Converts annotations from format with named labels to YOLO format with numeric class IDs
+    and normalized bounding boxes. Filters out annotations smaller than 0.1% of image area.
+    
+    Args:
+        gt_annotations_directory_path: Path to directory containing annotation files
+        gt_data_yaml_path: Path to YAML file with class names
+    """
     with open(gt_data_yaml_path, "r") as file:
         data_yaml = yaml.safe_load(file)
     label_map = {label: idx for idx, label in enumerate(data_yaml["names"])}
@@ -46,14 +71,13 @@ def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
                     x1, y1, x2, y2 = map(float, parts[1:])
                     label_number = label_map.get(label)
                     if label_number is None:
-                        print(label,label_map)
+                        print(label, label_map)
                     center_x = (x1 + x2) / 2
                     center_y = (y1 + y2) / 2
                     width = abs(x1 - x2)
                     height = abs(y1 - y2)
-                    #check if annotation is smaller than 0.1% of the image
-                    if width*height > 0.1:
-                        pass
+                    # Check if annotation is smaller than 0.01% of the image
+                    if width * height > 0.0001:
                         print(f"annotation skipped for image {filename}")
                     new_line = (
                         f"{label_number} {center_x} {center_y} {width} {height}\n"
@@ -66,6 +90,13 @@ def update_labels(gt_annotations_directory_path, gt_data_yaml_path):
 
 
 def compare_classes(gt_dataset, dataset):
+    """
+    Compare class names between two datasets and identify differences.
+    
+    Args:
+        gt_dataset: Ground truth dataset
+        dataset: Predicted dataset
+    """
     print("GT classes: ", gt_dataset.classes)
     print("Dataset classes: ", dataset.classes)
     gt_classes_not_in_dataset = set(gt_dataset.classes) - set(dataset.classes)
@@ -73,6 +104,13 @@ def compare_classes(gt_dataset, dataset):
 
 
 def compare_image_keys(gt_dataset, dataset):
+    """
+    Compare image filenames between two datasets.
+    
+    Args:
+        gt_dataset: Ground truth dataset
+        dataset: Predicted dataset
+    """
     image_dataset = [
         os.path.splitext(os.path.basename(path))[0] for path, _, _ in dataset
     ]
@@ -91,7 +129,22 @@ def compare_image_keys(gt_dataset, dataset):
         else:
             print(f"Key {key} in GT dataset")
 
+
 def evaluate_detections(dataset, gt_dataset, results_dir="results"):
+    """
+    Evaluate detection performance by comparing predicted and ground truth datasets.
+    
+    Computes confusion matrix, precision, recall, F1 score, and mAP metrics.
+    Logs results to WandB if available.
+    
+    Args:
+        dataset: Predicted dataset
+        gt_dataset: Ground truth dataset
+        results_dir: Directory to save results (default: "results")
+        
+    Returns:
+        Tuple containing (confusion_matrix, precision, recall, F1, mAP50, mAP50-95)
+    """
     # Set confidence for all annotations in both datasets
     def set_confidence(annotations):
         for key in annotations.keys():
@@ -141,30 +194,30 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         fig = confusion_matrix.plot(normalize=False)
         confusion_matrix = confusion_matrix.matrix
 
-    #calculate class precision and recall
-    precision = confusion_matrix.diagonal() / confusion_matrix.sum(axis=0) #sums over rows
-    recall = confusion_matrix.diagonal() / confusion_matrix.sum(axis=1) #sums over columns
+    # Calculate class precision and recall
+    precision = confusion_matrix.diagonal() / confusion_matrix.sum(axis=0)  # Sums over rows
+    recall = confusion_matrix.diagonal() / confusion_matrix.sum(axis=1)  # Sums over columns
     # Handle division by zero: if precision + recall = 0, F1 = 0
     with np.errstate(divide='ignore', invalid='ignore'):
         F1 = 2 * (precision * recall) / (precision + recall)
         F1 = np.nan_to_num(F1, nan=0.0)  # Replace NaN with 0
     
-    #if more than 1 class, add overall precision and recall
+    # If more than 1 class, add overall precision and recall
     if len(gt_dataset.classes) > 1:
-        #add overall precision and recall
-        TP= confusion_matrix[:-1,:-1].sum()
-        #sum last row
-        FP = confusion_matrix[-1,:].sum()
-        FN = confusion_matrix[:,-1].sum()
+        # Add overall precision and recall
+        TP = confusion_matrix[:-1, :-1].sum()
+        # Sum last row
+        FP = confusion_matrix[-1, :].sum()
+        FN = confusion_matrix[:, -1].sum()
         
         # Handle division by zero for overall metrics
         if (TP + FP) > 0:
-            precision[-1] = TP/(TP+FP)
+            precision[-1] = TP / (TP + FP)
         else:
             precision[-1] = 0.0
             
         if (TP + FN) > 0:
-            recall[-1] = TP/(TP+FN)
+            recall[-1] = TP / (TP + FN)
         else:
             recall[-1] = 0.0
             
@@ -178,18 +231,16 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     print(f"F1: {F1}")
     try:
         wandb.log({"Confusion Matrix": wandb.Image(fig)})
-        #create a table with the precision, recall and F1 score
+        # Create a table with the precision, recall and F1 score
         df = pd.DataFrame(
             {
-                "Class": gt_dataset.classes+ ["ANY_DEF"],
+                "Class": gt_dataset.classes + ["ANY_DEF"],
                 "Precision": precision,
                 "Recall": recall,
                 "F1": F1,
             }
         )
-        tab = wandb.Table(dataframe=df,allow_mixed_types=True)#columns=gt_dataset.classes + ["ANY_DEF"], data=[precision, recall, F1])
-        #add a new column to the table with the class names
-        
+        tab = wandb.Table(dataframe=df, allow_mixed_types=True)
         wandb.log({"Class metrics": tab})
     except Exception as e:
         print(f"WandB logging error: {e}")
@@ -199,65 +250,68 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         map_metric = sv.metrics.MeanAveragePrecision()
         map_result = map_metric.update(predictions, targets).compute()
         try:
-            #print attributes of map_result
+            # Print attributes of map_result
             print(f"map_result: {map_result.ap_per_class}")
         except Exception as e:
             print(f"Error in class_map: {e}")
         try:
             # Plot mAP
             fig = map_result.plot()
-            fig = plt.gcf()  # grab last figure
+            fig = plt.gcf()  # Grab last figure
             wandb.log({"mAP": wandb.Image(fig)})
         except Exception as e:
             print(f"WandB logging error: {e}")
         wandb.log({"mAP50": map_result.map50})
         wandb.log({"mAP50_95": map_result.map50_95})
 
-        #IoU
-        """
-        # Calculate IoU matrix between predictions and targets
-        from supervision.detection.utils import box_iou_batch
-        
-        # Collect all boxes from predictions and targets
-        pred_boxes = np.concatenate([pred.xyxy for pred in predictions])
-        target_boxes = np.concatenate([target.xyxy for target in targets])
-        pred_boxes = np.array(pred_boxes)
-        target_boxes = np.array(target_boxes)
-        # Calculate IoU matrix
-        iou_matrix = box_iou_batch(pred_boxes, target_boxes)
-        # Calculate mean IoU
-        mean_iou = np.nanmean(iou_matrix)
-        print(f"Mean IoU: {mean_iou}")
-        try:
-            wandb.log({"Mean IoU": mean_ious})
-        except Exception as e:
-            print(f"WandB logging error: {e}")
-        """
     return confusion_matrix, precision, recall, F1, map_result.map50, map_result.map50_95
 
-def log_evaluation_results(confusion_matrix, precision, recall, F1, map05,map05095):
-        print(f"Confusion matrix: {confusion_matrix}")
-        
-        print(f"recall: {recall}")
-        if len(recall) > 2:
-            # Take the last accuracy value
-            recall = recall[-1]
-            precision = precision[-1]
-            F1 = F1[-1]
-        else:
-            # If there is only one accuracy value, use it directly
-            recall = recall[0]
-            precision = precision[0]
-            F1 = F1[0]
 
-        wandb.log({                
-            "recall": recall,
-            "precision": precision,
-            "F1": F1,
-            "confusion_matrix": confusion_matrix,
-            })
+def log_evaluation_results(confusion_matrix, precision, recall, F1, map05, map05095):
+    """
+    Log evaluation results to WandB.
+    
+    Args:
+        confusion_matrix: Confusion matrix array
+        precision: Precision values per class
+        recall: Recall values per class
+        F1: F1 scores per class
+        map05: Mean average precision at IoU threshold 0.5
+        map05095: Mean average precision at IoU thresholds 0.5:0.95
+    """
+    print(f"Confusion matrix: {confusion_matrix}")
+    print(f"recall: {recall}")
+    if len(recall) > 2:
+        # Take the last accuracy value
+        recall = recall[-1]
+        precision = precision[-1]
+        F1 = F1[-1]
+    else:
+        # If there is only one accuracy value, use it directly
+        recall = recall[0]
+        precision = precision[0]
+        F1 = F1[0]
+
+    wandb.log({                
+        "recall": recall,
+        "precision": precision,
+        "F1": F1,
+        "confusion_matrix": confusion_matrix,
+    })
+
 
 def compare_plot(dataset, gt_dataset, results_dir="results"):
+    """
+    Generate side-by-side comparison plots of predictions vs ground truth.
+    
+    Creates visualization plots showing inference results and ground truth annotations
+    for each image, then logs them to WandB and saves to disk.
+    
+    Args:
+        dataset: Predicted dataset
+        gt_dataset: Ground truth dataset
+        results_dir: Directory to save comparison plots (default: "results")
+    """
     # Ensure confidence is set for all annotations in both datasets
     for key in dataset.annotations.keys():
         for i in range(len(dataset.annotations[key])):
@@ -454,6 +508,18 @@ def convert_bmp_to_jpg(image_dir_path,delete_bmp=False):
 
 
 def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
+    """
+    Crop individual defects from images based on bounding box annotations.
+    
+    Creates cropped images for each annotated defect in the dataset, saving them
+    with corresponding class labels.
+    
+    Args:
+        images_dir: Path to directory containing images
+        annotations_dir: Path to directory containing YOLO annotations
+        output_dir: Path to directory where cropped images will be saved
+        keys: List of class names (default: wood defect classes)
+    """
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
@@ -498,7 +564,7 @@ def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
             y_center_pixel = int(y_center * img_height)
             width_pixel = int(width * img_width)
             height_pixel = int(height * img_height)
-            if width_pixel < 50 or height_pixel<50:
+            if width_pixel < 50 or height_pixel < 50:
                 continue
             # Calculate bounding box coordinates
             x1 = int(x_center_pixel - (width_pixel / 2))
@@ -514,7 +580,7 @@ def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
             # Crop the image
             cropped_image = image[y1:y2, x1:x2]
 
-            # use yaml file class_id keys
+            # Use yaml file class_id keys
             if keys is None:
                 keys = [
                     "live knot",
@@ -528,7 +594,6 @@ def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
                     "blue stain",
                     "overgrown"
                 ]
-            # output_file_name = f"{image_file}_{keys[int(class_id)]}.jpg"
 
             # Save the cropped image
             output_file_name = (
@@ -536,7 +601,7 @@ def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
             )
             output_path = os.path.join(output_dir, output_file_name)
             cv2.imwrite(output_path, cropped_image)
-            # create annotation files
+            # Create annotation files
             annotation = [int(class_id), 0.5, 0.5, 1, 1]
             # Write YOLO annotations to a text file
             output_path = os.path.join(
@@ -549,13 +614,17 @@ def crop_gt_images(images_dir, annotations_dir, output_dir, keys=None):
                 f.write(annotation_str)
 
         print(f"Processed {image_file}, saved cropped images to {output_dir}.")
+
+
 def create_boundingboxes_defect_annotations(input_dir, output_dir):
     """
-    Create a new directory with BoundingBox annotations where the first number in each line is switched to 1.
-
+    Create binary defect annotations by converting all class IDs to 0.
+    
+    Used to create a single "defect" class from multi-class annotations.
+    
     Args:
-        input_dir: Path to the input directory containing original BoundingBox annotations.
-        output_dir: Path to the output directory where modified annotations will be saved.
+        input_dir: Path to input directory containing original annotations
+        output_dir: Path to output directory where modified annotations will be saved
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -574,13 +643,14 @@ def create_boundingboxes_defect_annotations(input_dir, output_dir):
 
     print(f"Processed annotations saved to {output_dir}")
 
+
 def reset_folders(dataset_folder_path, results_folder_path):
     """
-    Deletes the dataset folder and results folder, then creates a new results folder.
-
+    Delete and recreate dataset and results folders for a fresh start.
+    
     Args:
-        dataset_folder_path: Path to the dataset folder to be deleted.
-        results_folder_path: Path to the results folder to be deleted and recreated.
+        dataset_folder_path: Path to the dataset folder to be deleted
+        results_folder_path: Path to the results folder to be deleted and recreated
     """
     # Delete the dataset folder if it exists
     if os.path.exists(dataset_folder_path):
@@ -604,13 +674,37 @@ def reset_folders(dataset_folder_path, results_folder_path):
 
 
 def process_image(image, annotations, mask_annotator, box_annotator):
+    """
+    Apply annotations (masks and boxes) to an image.
+    
+    Args:
+        image: Input image array
+        annotations: Detection annotations to apply
+        mask_annotator: Supervision mask annotator
+        box_annotator: Supervision box annotator
+        
+    Returns:
+        Annotated image array
+    """
     annotated_image = mask_annotator.annotate(scene=image.copy(), detections=annotations)
     annotated_image = box_annotator.annotate(scene=annotated_image, detections=annotations)
     return annotated_image
 
+
 def plot_annotated_images(dataset, sample_size, save_path):
-    from utils.config import SAMPLE_GRID_SIZE, SAMPLE_PLOT_SIZE
-    images =[]
+    """
+    Create a grid of annotated sample images from a dataset.
+    
+    Args:
+        dataset: Dataset containing images and annotations
+        sample_size: Number of images to include in grid
+        save_path: Path to save the resulting grid image
+    """
+    # Default values
+    SAMPLE_GRID_SIZE = (3, 2)
+    SAMPLE_PLOT_SIZE = (16, 16)
+    
+    images = []
     image_names = []
     annotations = []
     mask_annotator = sv.MaskAnnotator()
@@ -621,7 +715,7 @@ def plot_annotated_images(dataset, sample_size, save_path):
         if len(images) == sample_size:
             break
 
-    #free up memory
+    # Free up memory
     del dataset
 
     sv.plot_images_grid(
@@ -642,14 +736,29 @@ def plot_annotated_images(dataset, sample_size, save_path):
     plt.savefig(save_path, dpi=1200)
     print(f"Saved annotated images grid to {save_path}.")
 
+
 def plot_confusion_class(
-        input,
-        save_path: Optional[str] = None,
-        title: Optional[str] = None,
-        classes: Optional[List[str]] = None,
-        normalize: bool = False,
-        fig_size: Tuple[int, int] = (12, 10),
-    ) -> matplotlib.figure.Figure:
+    input,
+    save_path: Optional[str] = None,
+    title: Optional[str] = None,
+    classes: Optional[List[str]] = None,
+    normalize: bool = False,
+    fig_size: Tuple[int, int] = (12, 10),
+) -> matplotlib.figure.Figure:
+    """
+    Plot confusion matrix for classification results.
+    
+    Args:
+        input: Confusion matrix array
+        save_path: Path to save the figure (optional)
+        title: Title for the plot (optional)
+        classes: List of class names (optional)
+        normalize: Whether to normalize the matrix (default: False)
+        fig_size: Figure size tuple (default: (12, 10))
+        
+    Returns:
+        matplotlib.figure.Figure: The generated figure
+    """
     array = input.copy()
 
     if normalize:
@@ -709,19 +818,23 @@ def plot_confusion_class(
     ax.set_facecolor("white")
     if save_path:
         fig.savefig(
-                save_path, dpi=250, facecolor=fig.get_facecolor(), transparent=True
-            )
+            save_path, dpi=250, facecolor=fig.get_facecolor(), transparent=True
+        )
     return fig
+
 
 def summarize_annotation_distributions(gt_dataset):
     """
-    Summarizes the distributions of annotations per image and the distribution of classes among all annotations.
-
+    Summarize annotation and class distributions in the dataset.
+    
+    Computes statistics about annotations per image and counts of each class,
+    then logs results to WandB if available.
+    
     Args:
-        gt_dataset: Ground truth dataset containing images and annotations.
-
+        gt_dataset: Ground truth dataset
+        
     Returns:
-        dict: Dictionary containing summary statistics.
+        dict: Dictionary containing summary statistics
     """
     annotation_counts_per_image = []
     class_distribution = {class_name: 0 for class_name in gt_dataset.classes}
@@ -755,75 +868,74 @@ def summarize_annotation_distributions(gt_dataset):
         print(f"{class_name}: {count}")
     return summary
 
+
 def set_one_class(gt_dataset):
+    """
+    Convert multi-class dataset to single-class (defect/no-defect).
+    
+    Sets all class IDs to 0 and changes class name to 'defect'.
+    
+    Args:
+        gt_dataset: Dataset to convert
+        
+    Returns:
+        Modified dataset with single class
+    """
     for key in gt_dataset.annotations.keys():
         gt_dataset.annotations[key].class_id = np.zeros_like(gt_dataset.annotations[key].class_id)
     gt_dataset.classes = ['defect']
     return gt_dataset
 
+
 def check_classes(gt_dataset):
+    """
+    Verify that all annotations use the last class ID (typically for binary classification).
+    
+    Args:
+        gt_dataset: Dataset to check
+        
+    Returns:
+        bool: True if all annotations use last class ID, False otherwise
+    """
     for key in gt_dataset.annotations.keys():
         for i in range(len(gt_dataset.annotations[key])):
             if gt_dataset.annotations[key][i].class_id != len(gt_dataset.classes) - 1:
                 return False
     return True
+
+
 def main():
-    import config as config
     """
-    wandb.init()
-    print_supervision_version()
-    dataset = load_dataset(
-        IMAGES_DIRECTORY_PATH, ANNOTATIONS_DIRECTORY_PATH, DATA_YAML_PATH
-    )
-    update_labels(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    gt_dataset = load_dataset(GT_IMAGES_DIRECTORY_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    compare_classes(gt_dataset, dataset)
-    compare_image_keys(gt_dataset, dataset)
-    evaluate_detections(dataset, gt_dataset)
-    compare_plot(dataset,gt_dataset)
-    load_images_and_annotations(
-    #    IMAGE_DIR_PATH, GT_ANNOTATIONS_DIRECTORY_PATH, f"{HOME}/croped_images2"
-    #)
+    Example usage and testing functionality.
+    
+    This function demonstrates how to use the various utilities in this module.
+    Most code is commented out - uncomment as needed for specific tasks.
     """
-    #convert_bmp_to_jpg("/work3/s184361/data/Images",delete_bmp=True)
-    print(os.path.exists("/work3/s184361/data/BoundingBoxes"))
-    #update_labels("/work3/s184361/data/BoudingBoxes", GT_DATA_YAML_PATH)
-    keys = [
-        "blue stain",
-        "crack",
-        "dead knot",
-        "knot missing",
-        "knot with crack",
-        "live knot",
-        "marrow",
-        "overgrown",
-        "quartzity",
-        "resin"
-    ]
-    """
-    crop_gt_images(
-        "/work3/s184361/data/Images",
-        "/work3/s184361/data/BoudingBoxes",
-        "/work3/s184361/data/croped_images3",
-        keys=keys,
-    )
-    """
-    create_boundingboxes_defect_annotations("/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes", "/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes2")
-    # single_annotation_files = find_single_annotation_files(
-    #    GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH
+    # Example: Convert BMP images to JPG
+    # convert_bmp_to_jpg("/work3/s184361/data/Images", delete_bmp=True)
+    
+    # Example: Create binary defect annotations
+    # create_boundingboxes_defect_annotations(
+    #     "/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes",
+    #     "/zhome/4a/b/137804/Desktop/autolbl/data/BoundingBoxes2"
     # )
-    # print(single_annotation_files)
-    # df = create_annotations_dataframe(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH)
-    # print(df)
-    # print_statistics(df)
-    # save_annotations(df)
-    # loaded_df = load_annotations()
-    # print(loaded_df)
+    
+    # Example: Crop annotated regions from images
+    # keys = [
+    #     "blue stain", "crack", "dead knot", "knot missing", "knot with crack",
+    #     "live knot", "marrow", "overgrown", "quartzity", "resin"
+    # ]
+    # crop_gt_images(
+    #     "/work3/s184361/data/Images",
+    #     "/work3/s184361/data/BoudingBoxes",
+    #     "/work3/s184361/data/croped_images3",
+    #     keys=keys,
+    # )
+    
+    pass
 
 
 if __name__ == "__main__":
-    from config import *
-
     main()
     if wandb.run is not None:
         wandb.finish()
