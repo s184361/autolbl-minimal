@@ -130,7 +130,7 @@ def compare_image_keys(gt_dataset, dataset):
             print(f"Key {key} in GT dataset")
 
 
-def evaluate_detections(dataset, gt_dataset, results_dir="results"):
+def evaluate_detections(dataset, gt_dataset, results_dir="results", log_wandb=True):
     """
     Evaluate detection performance by comparing predicted and ground truth datasets.
     
@@ -141,6 +141,7 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         dataset: Predicted dataset
         gt_dataset: Ground truth dataset
         results_dir: Directory to save results (default: "results")
+        log_wandb: Whether to log results to WandB (default: True)
         
     Returns:
         Tuple containing (confusion_matrix, precision, recall, F1, mAP50, mAP50-95)
@@ -229,21 +230,23 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     print(f"Precision: {precision}")
     print(f"Recall: {recall}")
     print(f"F1: {F1}")
-    try:
-        wandb.log({"Confusion Matrix": wandb.Image(fig)})
-        # Create a table with the precision, recall and F1 score
-        df = pd.DataFrame(
-            {
-                "Class": gt_dataset.classes + ["ANY_DEF"],
-                "Precision": precision,
-                "Recall": recall,
-                "F1": F1,
-            }
-        )
-        tab = wandb.Table(dataframe=df, allow_mixed_types=True)
-        wandb.log({"Class metrics": tab})
-    except Exception as e:
-        print(f"WandB logging error: {e}")
+    
+    if log_wandb:
+        try:
+            wandb.log({"Confusion Matrix": wandb.Image(fig)})
+            # Create a table with the precision, recall and F1 score
+            df = pd.DataFrame(
+                {
+                    "Class": gt_dataset.classes + ["ANY_DEF"],
+                    "Precision": precision,
+                    "Recall": recall,
+                    "F1": F1,
+                }
+            )
+            tab = wandb.Table(dataframe=df, allow_mixed_types=True)
+            wandb.log({"Class metrics": tab})
+        except Exception as e:
+            print(f"WandB logging error: {e}")
 
     # Compute mAP if both datasets are DetectionDataset
     if isinstance(dataset, sv.DetectionDataset) and isinstance(gt_dataset, sv.DetectionDataset):
@@ -254,18 +257,20 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             print(f"map_result: {map_result.ap_per_class}")
         except Exception as e:
             print(f"Error in class_map: {e}")
-        try:
-            # Plot mAP
-            fig = map_result.plot()
-            fig = plt.gcf()  # Grab last figure
-            wandb.log({"mAP": wandb.Image(fig)})
-        except Exception as e:
-            print(f"WandB logging error: {e}")
-        try:
-            wandb.log({"mAP50": map_result.map50})
-            wandb.log({"mAP50_95": map_result.map50_95})
-        except Exception as e:
-            print(f"WandB logging error: {e}")
+        
+        if log_wandb:
+            try:
+                # Plot mAP
+                fig = map_result.plot()
+                fig = plt.gcf()  # Grab last figure
+                wandb.log({"mAP": wandb.Image(fig)})
+            except Exception as e:
+                print(f"WandB logging error: {e}")
+            try:
+                wandb.log({"mAP50": map_result.map50})
+                wandb.log({"mAP50_95": map_result.map50_95})
+            except Exception as e:
+                print(f"WandB logging error: {e}")
 
     return confusion_matrix, precision, recall, F1, map_result.map50, map_result.map50_95
 

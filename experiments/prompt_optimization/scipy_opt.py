@@ -213,7 +213,7 @@ class PromptOptimizer:
         )
         dataset = run_any_args(args)
         if eval_metrics:
-            confusion_matrix, precision, recall, F1, map05, map05095 = evaluate_detections(dataset= dataset, gt_dataset=self.gt_dataset, log_wandb=False)
+            confusion_matrix, precision, recall, F1, map05, map05095 = evaluate_detections(dataset=dataset, gt_dataset=self.gt_dataset, log_wandb=False)
             print(f"Precision: {precision}, Recall: {recall}, F1: {F1}")
             gt_class = "defect"
         else:
@@ -330,9 +330,23 @@ class PromptOptimizer:
             loss_giou = loss_output["loss_giou"]
             loss_bbox = loss_output["loss_bbox"]
             loss_class = loss_output['loss_class']
+            
+            # Convert tensors to scalars
+            if isinstance(total_loss, torch.Tensor):
+                total_loss = total_loss.item()
+            if isinstance(loss_giou, torch.Tensor):
+                loss_giou = loss_giou.item()
+            if isinstance(loss_bbox, torch.Tensor):
+                loss_bbox = loss_bbox.item()
+            if isinstance(loss_class, torch.Tensor):
+                loss_class = loss_class.item()
         else:
             # Fallback: use F1 score as loss metric
-            total_loss = 1.0 - F1  # Loss is inverse of F1 score
+            # F1 is an array, use first element or mean
+            if isinstance(F1, np.ndarray):
+                total_loss = float(1.0 - F1[0]) if len(F1) > 0 else 1.0
+            else:
+                total_loss = float(1.0 - F1)
             loss_giou = 0.0
             loss_bbox = 0.0
             loss_class = total_loss
@@ -359,10 +373,10 @@ class PromptOptimizer:
             'F1': [F1[0] if F1 is not None else None],
             'map05': [map05],
             'map05095': [map05095],
-            'total_loss': [total_loss.item()],
-            'loss_giou': [loss_output["loss_giou"].item()],
-            'loss_bbox': [loss_output["loss_bbox"].item()],
-            'loss_class': [loss_output['loss_class'].item()],
+            'total_loss': [total_loss],
+            'loss_giou': [loss_giou],
+            'loss_bbox': [loss_bbox],
+            'loss_class': [loss_class],
             'optimized': [False],
         })
             

@@ -329,9 +329,22 @@ class PromptOptimizer:
             loss_giou = loss_output["loss_giou"]
             loss_bbox = loss_output["loss_bbox"]
             loss_class = loss_output['loss_class']
+            
+            # Convert tensors to scalars for logging
+            if isinstance(total_loss, torch.Tensor):
+                total_loss = float(total_loss.item())
+            if isinstance(loss_giou, torch.Tensor):
+                loss_giou = float(loss_giou.item())
+            if isinstance(loss_bbox, torch.Tensor):
+                loss_bbox = float(loss_bbox.item())
+            if isinstance(loss_class, torch.Tensor):
+                loss_class = float(loss_class.item())
         else:
             # Fallback: use F1 score as loss metric
-            total_loss = 1.0 - F1  # Loss is inverse of F1 score
+            if F1 is not None:
+                total_loss = float(1.0 - F1) if not isinstance(F1, (int, float)) else float(1.0 - F1)
+            else:
+                total_loss = 1.0
             loss_giou = 0.0
             loss_bbox = 0.0
             loss_class = total_loss
