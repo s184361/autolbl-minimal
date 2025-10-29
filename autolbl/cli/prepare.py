@@ -5,7 +5,7 @@ Handles multiple datasets: Wood (MVTec AD) and Images1 (Zenodo).
 
 import argparse
 from pathlib import Path
-from autolbl.data.dataset_prep import (
+from autolbl.datasets.dataset_prep import (
     get_base_dir, update_config_section, create_config_section,
     convert_bbox_annotation, convert_masks_to_yolo_bbox,
     copy_and_rename_images, create_empty_annotations,
@@ -27,9 +27,20 @@ def prepare_wood_dataset(base_dir, max_images=None):
     print("Preparing MVTec AD Wood Dataset")
     print("="*60)
     
-    # Define paths
-    source_base = base_dir / "data" / "wood" / "wood"
-    output_base = base_dir / "data" / "wood"
+    # Define paths - check for both 'data' and 'data2' folders
+    data_folder = None
+    for folder_name in ["data", "data2"]:
+        potential_path = base_dir / folder_name
+        if potential_path.exists():
+            data_folder = potential_path
+            break
+    
+    if data_folder is None:
+        print(f"❌ ERROR: Neither 'data' nor 'data2' folder found in {base_dir}")
+        return False
+    
+    source_base = data_folder / "wood" / "wood"
+    output_base = data_folder / "wood"
     
     images_output_dir = output_base / "images"
     annotations_output_dir = output_base / "yolo_annotations"
@@ -43,7 +54,7 @@ def prepare_wood_dataset(base_dir, max_images=None):
     # Check if source exists
     if not source_base.exists():
         print(f"❌ ERROR: Source directory not found: {source_base}")
-        print("Please extract wood.tar.xz to data/wood/wood/")
+        print(f"Please extract wood.tar.xz to {data_folder}/wood/wood/")
         return False
     
     # Step 1: Convert masks to YOLO annotations
@@ -111,11 +122,22 @@ def prepare_images1_dataset(base_dir, max_images=100):
     print("Preparing Images1 Dataset (Zenodo)")
     print("="*60)
     
-    # Define paths
-    source_images_dir = base_dir / "data" / "Images1"
-    source_annotations_dir = base_dir / "data" / "Bouding_Boxes" / "Bouding Boxes"
+    # Define paths - check for both 'data' and 'data2' folders
+    data_folder = None
+    for folder_name in ["data", "data2"]:
+        potential_path = base_dir / folder_name
+        if potential_path.exists():
+            data_folder = potential_path
+            break
     
-    output_base = base_dir / "data" / "Images1_processed"
+    if data_folder is None:
+        print(f"❌ ERROR: Neither 'data' nor 'data2' folder found in {base_dir}")
+        return False
+    
+    source_images_dir = data_folder / "Images1"
+    source_annotations_dir = data_folder / "Bouding_Boxes" / "Bouding Boxes"
+    
+    output_base = data_folder / "Images1_processed"
     output_images_dir = output_base / "images"
     output_annotations_dir = output_base / "yolo_annotations"
     
@@ -129,7 +151,7 @@ def prepare_images1_dataset(base_dir, max_images=100):
     # Check if sources exist
     if not source_images_dir.exists():
         print(f"❌ ERROR: Images directory not found: {source_images_dir}")
-        print("Please extract Images1.zip to data/Images1/")
+        print(f"Please extract Images1.zip to {data_folder}/Images1/")
         return False
     
     if not source_annotations_dir.exists():

@@ -12,10 +12,10 @@ autolbl.egg-info/top_level.txt
 autolbl/cli/__init__.py
 autolbl/cli/infer.py
 autolbl/cli/prepare.py
-autolbl/data/__init__.py
-autolbl/data/converters.py
-autolbl/data/dataset_prep.py
-autolbl/data/processing.py
+autolbl/datasets/__init__.py
+autolbl/datasets/converters.py
+autolbl/datasets/dataset_prep.py
+autolbl/datasets/processing.py
 autolbl/evaluation/__init__.py
 autolbl/evaluation/metrics.py
 autolbl/models/__init__.py

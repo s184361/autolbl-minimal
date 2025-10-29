@@ -5,7 +5,7 @@ Handles multiple datasets: Wood (MVTec AD) and Images1 (Zenodo).
 
 import argparse
 from pathlib import Path
-from autolbl.data.dataset_prep import (
+from autolbl.datasets.dataset_prep import (
     get_base_dir, update_config_section, create_config_section,
     convert_bbox_annotation, convert_masks_to_yolo_bbox,
     copy_and_rename_images, create_empty_annotations,

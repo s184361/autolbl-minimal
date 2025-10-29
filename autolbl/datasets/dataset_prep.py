@@ -16,15 +16,30 @@ def get_base_dir(script_path):
         script_path: Path(__file__) from the calling script
     
     Returns:
-        Path object to base directory
+        Path object to base directory (project root)
     """
     script_path = Path(script_path).absolute()
     
-    # If script is in utils folder, go up one level
-    if script_path.parent.name == "utils":
-        return script_path.parent.parent
-    else:
-        return script_path.parent
+    # Navigate up to find the project root
+    # Look for markers like pyproject.toml, setup.py, or .git
+    current = script_path.parent
+    while current != current.parent:  # Stop at filesystem root
+        if (current / "pyproject.toml").exists() or \
+           (current / "setup.py").exists() or \
+           (current / ".git").exists():
+            return current
+        current = current.parent
+    
+    # Fallback: if script is in autolbl/cli or utils, go to project root
+    if "autolbl" in script_path.parts:
+        # Find the autolbl package directory and go up one level
+        parts = list(script_path.parts)
+        if "autolbl" in parts:
+            autolbl_index = parts.index("autolbl")
+            return Path(*parts[:autolbl_index])
+    
+    # Last resort: return parent directory
+    return script_path.parent
 
 
 def update_config_section(section_name, section_data, config_path=None):
