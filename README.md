@@ -16,6 +16,7 @@ Initially, AutoLbl was designed specifically for wood defect detection and quali
 - **W&B Integration**: Automatic experiment tracking and visualization with Weights & Biases
 - **Multiple Dataset Support**: Pre-configured for MVTec AD and Zenodo wood datasets
 - **NMS Options**: Support for class-agnostic and class-specific non-maximum suppression
+- **CLI Tools**: Command-line interface for dataset preparation and inference
 
 ## Installation
 
@@ -25,7 +26,7 @@ Initially, AutoLbl was designed specifically for wood defect detection and quali
 git clone https://github.com/s184361/autolbl.git
 cd autolbl
 
-# Install dependencies
+# Install the package
 pip install -e .
 ```
 
@@ -42,21 +43,55 @@ pip install -e .[dev]
 - PyTorch with CUDA support
 - See `pyproject.toml` for complete dependency list
 
+## Package Structure
+
+```
+autolbl/
+├── autolbl/                    # Main package
+│   ├── models/                 # VLM model implementations
+│   │   ├── florence.py         # Florence-2 model
+│   │   ├── grounding_dino.py   # Grounding DINO model
+│   │   ├── qwen.py             # Qwen2.5-VL model
+│   │   ├── metaclip.py         # MetaCLIP classifier
+│   │   └── composed.py         # Model composition utilities
+│   ├── datasets/               # Dataset processing utilities
+│   │   ├── dataset_prep.py     # Dataset preparation functions
+│   │   ├── converters.py       # Format converters
+│   │   └── processing.py       # Data processing utilities
+│   ├── evaluation/             # Evaluation metrics
+│   │   └── metrics.py          # Confusion matrix, mAP, F1, etc.
+│   ├── ontology/               # Ontology management
+│   │   └── embedding.py        # Embedding-based ontology
+│   ├── visualization/          # Visualization tools
+│   │   └── wandb.py            # W&B integration
+│   ├── cli/                    # Command-line interface
+│   │   ├── prepare.py          # Dataset preparation CLI
+│   │   └── infer.py            # Inference CLI
+│   └── core.py                 # Core utilities
+├── examples/                   # Usage examples
+├── experiments/                # Experimental scripts
+│   ├── prompt_optimization/    # DSPy prompt optimization
+│   └── embedding/              # Embedding experiments
+├── config.json                 # Configuration file
+├── pyproject.toml              # Package configuration
+└── setup.py                    # Setup script
+```
+
 ## Quick Start
 
 ### 1. Prepare Your Dataset
 
-AutoLbl includes utilities to prepare datasets for training and evaluation:
+AutoLbl includes a CLI tool for dataset preparation:
 
 ```bash
 # Prepare MVTec AD Wood dataset
-python prepare_datasets.py --dataset wood
+autolbl-prepare --dataset wood
 
 # Prepare Zenodo Images1 dataset (first 100 images)
-python prepare_datasets.py --dataset images1
+autolbl-prepare --dataset images1
 
 # Prepare all datasets
-python prepare_datasets.py --dataset all
+autolbl-prepare --dataset all
 ```
 
 See [DATASET_PREPARATION.md](DATASET_PREPARATION.md) for detailed instructions.
@@ -78,36 +113,71 @@ Edit `config.json` to set up paths and parameters:
 
 ### 3. Run Detection
 
+Use the CLI tool for inference:
+
 ```bash
 # Basic usage with Florence-2
-python run_any3.py --section local_wood --model Florence
+autolbl-infer --section local_wood --model Florence
 
 # With custom ontology
-python run_any3.py --section local_wood --model Florence \
+autolbl-infer --section local_wood --model Florence \
   --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
 
 # With class-specific NMS
-python run_any3.py --section local_wood --model Florence \
+autolbl-infer --section local_wood --model Florence \
   --ontology "color: color, hole: hole, scratch: scratch" \
   --nms class_specific
 
 # Using Grounding DINO
-python run_any3.py --section local_wood --model DINO \
+autolbl-infer --section local_wood --model DINO \
   --ontology "knot: knot, crack: crack"
 
 # Using Qwen2.5-VL
-python run_any3.py --section local_wood --model Qwen \
+autolbl-infer --section local_wood --model Qwen \
   --ontology "defect: defect"
+
+# Enable W&B logging
+autolbl-infer --section local_wood --model Florence --wandb
 ```
 
-### 4. Evaluate Results
+### 4. Using AutoLbl as a Python Package
 
-Results are automatically saved to the configured results directory and logged to W&B (if enabled). The evaluation includes:
+```python
+from autolbl.models.florence import Florence2
+from autolbl.evaluation.metrics import evaluate_detections
+from autodistill.detection import CaptionOntology
 
-- Confusion matrices
-- Precision, Recall, F1 scores
-- mAP@0.5 and mAP@0.5:0.95
-- Visual comparisons of predictions vs ground truth
+# Initialize model
+ontology = CaptionOntology({
+    "knot": "knot",
+    "crack": "crack",
+    "resin": "resin"
+})
+model = Florence2(ontology=ontology)
+
+# Run detection
+dataset = model.label(
+    input_folder="path/to/images",
+    output_folder="path/to/output",
+    extension=".jpg"
+)
+
+# Evaluate results
+from supervision import DetectionDataset
+gt_dataset = DetectionDataset.from_yolo(
+    images_directory_path="path/to/images",
+    annotations_directory_path="path/to/annotations",
+    data_yaml_path="path/to/data.yaml"
+)
+
+confusion_matrix, precision, recall, f1, map50, map50_95 = evaluate_detections(
+    dataset, gt_dataset
+)
+print(f"Precision: {precision}")
+print(f"Recall: {recall}")
+print(f"F1 Score: {f1}")
+print(f"mAP@50: {map50}")
+```
 
 ## Supported Models
 

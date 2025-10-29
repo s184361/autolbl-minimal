@@ -1,29 +1,31 @@
 # Dataset Preparation Guide
 
-This guide explains how to download and prepare datasets for use with this project.
+This guide explains how to download and prepare datasets for use with AutoLbl.
 
 ## Quick Start
 
+The AutoLbl package includes a command-line tool for dataset preparation:
+
 ```bash
 # Prepare all datasets
-python prepare_datasets.py --dataset all
+autolbl-prepare --dataset all
 
 # Prepare only Wood dataset
-python prepare_datasets.py --dataset wood
+autolbl-prepare --dataset wood
 
 # Prepare only Images1 dataset (first 100 images)
-python prepare_datasets.py --dataset images1
+autolbl-prepare --dataset images1
 
 # Prepare Images1 with custom image limit
-python prepare_datasets.py --dataset images1 --max-images 500
+autolbl-prepare --dataset images1 --max-images 500
 
 # Prepare all images from Images1
-python prepare_datasets.py --dataset images1 --max-images 0
+autolbl-prepare --dataset images1 --max-images 0
 ```
 
 ## Prerequisites
 
-- Python environment with required packages installed
+- AutoLbl package installed (`pip install -e .`)
 - Internet connection to download the datasets
 - Approximately 500 MB of free disk space per dataset
 
@@ -86,7 +88,7 @@ Create the data folder structure and place the extracted dataset:
 #### 3. Run Preparation Script
 
 ```bash
-python prepare_datasets.py --dataset wood
+autolbl-prepare --dataset wood
 ```
 
 #### 4. Verify Output
@@ -180,7 +182,7 @@ pip install opencv-python numpy supervision
 
 **Solution:** Use the `--max-images` option to process fewer images:
 ```bash
-python prepare_datasets.py --dataset images1 --max-images 100
+autolbl-prepare --dataset images1 --max-images 100
 ```
 
 ### Issue: Annotation format errors
@@ -263,13 +265,13 @@ Control how many images to process from Images1:
 
 ```bash
 # First 10 images (quick test)
-python prepare_datasets.py --dataset images1 --max-images 10
+autolbl-prepare --dataset images1 --max-images 10
 
 # First 1000 images
-python prepare_datasets.py --dataset images1 --max-images 1000
+autolbl-prepare --dataset images1 --max-images 1000
 
 # All images (no limit)
-python prepare_datasets.py --dataset images1 --max-images 0
+autolbl-prepare --dataset images1 --max-images 0
 ```
 
 ### Reprocessing Datasets

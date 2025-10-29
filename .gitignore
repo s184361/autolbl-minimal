@@ -308,6 +308,13 @@ paket-files/
 __pycache__/
 *.pyc
 
+# Python packaging
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
 # Cake - Uncomment if you are using it
 # tools/**
 # !tools/packages.config
