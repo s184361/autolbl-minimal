@@ -18,6 +18,11 @@ from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 from autodistill.detection import CaptionOntology
 
+# Move HuggingFace cache to D: drive (C: drive is full)
+os.environ["HF_HOME"] = "D:/huggingface_cache"
+os.environ["TRANSFORMERS_CACHE"] = "D:/huggingface_cache/transformers"
+os.environ["HF_HUB_CACHE"] = "D:/huggingface_cache/hub"
+
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 
@@ -55,16 +60,27 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str,mode
     print(check_classes(dataset))
     print(check_classes(gt_dataset))
 
-    confusion_matrix, acc, map_result = evaluate_detections(dataset, gt_dataset)
-    print(f"Accuracy: {acc}")
+    confusion_matrix, precision, recall, F1, map50, map50_95 = evaluate_detections(dataset, gt_dataset)
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1: {F1}")
 
     gt_class = "defect"
     TP = confusion_matrix[0, 0] / confusion_matrix.sum()
     FP = confusion_matrix[0, 1] / confusion_matrix.sum()
     FN = confusion_matrix[1, 0] / confusion_matrix.sum()
-    F1 = 2 * TP / (2 * TP + FP + FN)
+    
+    # Use the already calculated values
+    if len(precision) > 2:
+        precision_val = precision[-1]
+        recall_val = recall[-1]
+        F1_val = F1[-1]
+    else:
+        precision_val = precision[0] if len(precision) > 0 else 0
+        recall_val = recall[0] if len(recall) > 0 else 0
+        F1_val = F1[0] if len(F1) > 0 else 0
 
-    return gt_class, TP, FP, FN, acc[0], F1, dataset
+    return gt_class, TP, FP, FN, recall_val, F1_val, dataset
 
 
 def template_prompt(image_feature, location, region_feature, object_name):
@@ -165,8 +181,11 @@ def process_detection_prompt(check_and_revise_prompt, prompt):
             elif "no" in raw_response:
                 return "no"
             else:
+                print("Unclear response:", raw_response)
+                print("Defaulting to 'yes'")
                 return "yes"  # Default to "yes" if unclear
         except:
+            print("Error occurred while parsing response.")
             return "yes"  # Default to "yes" on any error
 
 def log_wandb_metrics(metrics):

@@ -261,8 +261,11 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
             wandb.log({"mAP": wandb.Image(fig)})
         except Exception as e:
             print(f"WandB logging error: {e}")
-        wandb.log({"mAP50": map_result.map50})
-        wandb.log({"mAP50_95": map_result.map50_95})
+        try:
+            wandb.log({"mAP50": map_result.map50})
+            wandb.log({"mAP50_95": map_result.map50_95})
+        except Exception as e:
+            print(f"WandB logging error: {e}")
 
     return confusion_matrix, precision, recall, F1, map_result.map50, map_result.map50_95
 
