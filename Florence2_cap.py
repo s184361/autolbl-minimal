@@ -1,143 +1,182 @@
-#%%
-import torch
-from PIL import Image
-from transformers import AutoProcessor, AutoModelForCausalLM 
+"""
+Florence-2 Caption and Grounding Example Script
+
+This script demonstrates how to use Florence-2 for:
+1. Generating detailed captions
+2. Caption-to-phrase grounding (detecting objects mentioned in captions)
+
+This is an example/experimental script showing Florence-2 captioning capabilities.
+For production use, see autolbl/models/florence.py
+"""
+
 import os
-from tqdm import tqdm
-import glob
-import matplotlib.pyplot as plt  
-import matplotlib.patches as patches  
-import wandb  # Import wandb
-from utils.wandb_utils import detections_to_wandb  # Import the utility function
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+import torch
+from PIL import Image
+from tqdm import tqdm
+from transformers import AutoProcessor, AutoModelForCausalLM
+import wandb
 
-model = AutoModelForCausalLM.from_pretrained("microsoft/Florence-2-large", torch_dtype=torch_dtype, trust_remote_code=True).to(device)
-processor = AutoProcessor.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
+from utils.wandb_utils import detections_to_wandb
 
-#%%
-def run_example(task_prompt, text_input=None,image=None):
 
+# Configuration
+DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+TORCH_DTYPE = torch.float16 if torch.cuda.is_available() else torch.float32
+MODEL_NAME = "microsoft/Florence-2-large"
+
+# Initialize model and processor
+print(f"Loading Florence-2 model on {DEVICE}...")
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME, 
+    torch_dtype=TORCH_DTYPE, 
+    trust_remote_code=True
+).to(DEVICE)
+processor = AutoProcessor.from_pretrained(MODEL_NAME, trust_remote_code=True)
+print("Model loaded successfully!")
+
+
+def run_florence_task(task_prompt: str, image: Image.Image, text_input: str = None) -> dict:
+    """
+    Run a Florence-2 task on an image.
+    
+    Args:
+        task_prompt: Florence task type (e.g., '<MORE_DETAILED_CAPTION>', '<CAPTION_TO_PHRASE_GROUNDING>')
+        image: PIL Image
+        text_input: Optional text input for the task
+        
+    Returns:
+        Dictionary with task results
+    """
     if text_input is None:
         prompt = task_prompt
     else:
         prompt = task_prompt + text_input
-    inputs = processor(text=prompt, images=image, return_tensors="pt").to('cuda', torch.float16)
+        
+    inputs = processor(text=prompt, images=image, return_tensors="pt").to(DEVICE, TORCH_DTYPE)
+    
     generated_ids = model.generate(
-      input_ids=inputs["input_ids"].cuda(),
-      pixel_values=inputs["pixel_values"].cuda(),
-      max_new_tokens=1024,
-      early_stopping=False,
-      do_sample=False,
-      num_beams=3,
+        input_ids=inputs["input_ids"],
+        pixel_values=inputs["pixel_values"],
+        max_new_tokens=1024,
+        early_stopping=False,
+        do_sample=False,
+        num_beams=3,
     )
+    
     generated_text = processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
     parsed_answer = processor.post_process_generation(
-        generated_text, 
-        task=task_prompt, 
+        generated_text,
+        task=task_prompt,
         image_size=(image.width, image.height)
     )
-
+    
     return parsed_answer
 
-def plot_bbox(image, data):
-   # Create a figure and axes  
-    fig, ax = plt.subplots()  
-      
-    # Display the image  
-    ax.imshow(image)  
-      
-    # Plot each bounding box  
-    for bbox, label in zip(data['bboxes'], data['labels']):  
-        # Unpack the bounding box coordinates  
-        x1, y1, x2, y2 = bbox  
-        # Create a Rectangle patch  
-        rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='r', facecolor='none')  
-        # Add the rectangle to the Axes  
-        ax.add_patch(rect)  
-        # Annotate the label  
-        plt.text(x1, y1, label, color='white', fontsize=8, bbox=dict(facecolor='red', alpha=0.5))  
-      
-    # Remove the axis ticks and labels  
-    ax.axis('off')  
-      
-    # Show the plot  
-    plt.show()  
-# %%
-def label(
-        #self,
-        input_folder: str,
-        extension: str = ".jpg",
-        output_folder: str | None = None,
-        human_in_the_loop: bool = False,
-        roboflow_project: str | None = None,
-        roboflow_tags: list[str] = ["autodistill"],
-        sahi: bool = False,
-        record_confidence: bool = False,
-        #nms_settings: NmsSetting = NmsSetting.NONE,
-        save_images=True
-    ): #-> sv.DetectionDataset:
-        """
-        Label a dataset with the model.
-        """
-        wandb.init(project="Florence2", group="wood_default")
-        if output_folder is None:
-            output_folder = input_folder + "_labeled"
 
-        os.makedirs(output_folder, exist_ok=True)
+def caption_and_ground_images(
+    input_folder: str,
+    output_folder: str = None,
+    extension: str = ".jpg",
+    wandb_project: str = "Florence2",
+    wandb_group: str = "caption_grounding"
+) -> pd.DataFrame:
+    """
+    Generate captions and perform phrase grounding for images in a folder.
+    
+    This function:
+    1. Generates detailed captions for each image
+    2. Uses the caption to detect objects mentioned in it
+    3. Logs results to W&B
+    
+    Args:
+        input_folder: Path to input images
+        output_folder: Path to save results (default: input_folder + "_labeled")
+        extension: Image file extension
+        wandb_project: W&B project name
+        wandb_group: W&B group name
+        
+    Returns:
+        DataFrame with results
+    """
+    wandb.init(project=wandb_project, group=wandb_group)
+    
+    if output_folder is None:
+        output_folder = input_folder + "_labeled"
+    
+    os.makedirs(output_folder, exist_ok=True)
+    
+    # Find all images
+    image_paths = list(Path(input_folder).glob(f"*{extension}"))
+    
+    if not image_paths:
+        print(f"No images found with extension {extension} in {input_folder}")
+        return pd.DataFrame()
+    
+    results_data = []
+    
+    progress_bar = tqdm(image_paths, desc="Processing images")
+    for image_path in progress_bar:
+        progress_bar.set_description(desc=f"Processing {image_path.name}", refresh=True)
+        
+        # Load image
+        image = Image.open(image_path)
+        
+        # Step 1: Generate detailed caption
+        caption_results = run_florence_task('<MORE_DETAILED_CAPTION>', image)
+        caption_text = caption_results['<MORE_DETAILED_CAPTION>']
+        
+        # Step 2: Use caption for phrase grounding
+        grounding_results = run_florence_task(
+            '<CAPTION_TO_PHRASE_GROUNDING>',
+            image,
+            caption_text
+        )
+        
+        # Extract detections
+        detections = grounding_results['<CAPTION_TO_PHRASE_GROUNDING>']
+        classes = detections['labels']
+        bboxes = detections['bboxes']
+        
+        # Format detections for W&B
+        formatted_detections = [
+            [np.array(bbox), 1.0, 1.0, i] 
+            for i, bbox in enumerate(bboxes)
+        ]
+        
+        wandb_image = detections_to_wandb(image, formatted_detections, classes)
+        
+        # Store results
+        results_data.append({
+            'image_name': image_path.name,
+            'caption': caption_text,
+            'num_detections': len(bboxes),
+            'detected_classes': ', '.join(classes),
+            'wandb_image': wandb_image
+        })
+    
+    # Create DataFrame and log to W&B
+    df = pd.DataFrame(results_data)
+    wandb.log({"results_table": wandb.Table(dataframe=df)})
+    wandb.finish()
+    
+    print(f"\nProcessed {len(image_paths)} images")
+    print(f"Results saved to: {output_folder}")
+    
+    return df
 
-        image_paths = glob.glob(input_folder + "/*" + extension)
-        detections_map = {}
-        df = pd.DataFrame()
-        progress_bar = tqdm(image_paths, desc="Labeling images")
-        for f_path in progress_bar:
-            progress_bar.set_description(desc=f"Labeling {f_path}", refresh=True)
 
-            image = Image.open(f_path)
-            
-            task_prompt = '<MORE_DETAILED_CAPTION>'
-            results = run_example(task_prompt=task_prompt, image=image)
-            text_input = results['<MORE_DETAILED_CAPTION>']
-            #text_input = "blue stain: blue stain, crack: crack, Dead knot or partly dead knot with a ring of bark around the circumference: dead knot, fallen out or partially fallen out knot: knot missing, cracks inside and around knot: knot with crack, fresh and firm knots or sound knot: live knot, marrow: marrow, overgrown: overgrown, quartzity: quartzity, resin pocket that is completly dry i.e no sticky resin completly crystalizd or resind pocket where resin is partly crstalized or complately in liquid form: resin, Firm black knot that is fixed with surrouding wood: black knot"#results[task_prompt]
-            task_prompt = '<CAPTION_TO_PHRASE_GROUNDING>'
-            results = run_example(task_prompt, text_input, image=image)
-            #print(results.loss)
-            results['<MORE_DETAILED_CAPTION>'] = text_input
-            """
-            fig=plot_bbox(image, results['<CAPTION_TO_PHRASE_GROUNDING>'])
-
-            #save the image in results folder
-           
-            try:
-                plt.savefig(output_folder + '/' + f_path)
-            except:
-                #create the folder
-                os.makedirs(output_folder, exist_ok=True)
-                plt.savefig(output_folder + '/' + f_path)
-            plt.close()
-            """
-
-            # Prepare data for WandB
-            detections = results['<CAPTION_TO_PHRASE_GROUNDING>']
-            classes = detections['labels']  # Assuming 'labels' are the class names
-            bboxes = detections['bboxes']
-            formatted_detections = []
-            for i, bbox in enumerate(bboxes):
-               formatted_detections.append([np.array(bbox), 1.0, 1.0, i])  # Include class name and ID
-
-            wandb_image = detections_to_wandb(image, formatted_detections, classes)
-            image_name = os.path.basename(f_path)
-            #log the detailed caption and the image in df
-            new_row = pd.DataFrame({
-                'image_name': [image_name], 
-                '<MORE_DETAILED_CAPTION>': [text_input], 
-                'wandb_image': [wandb_image]
-            })
-            df = pd.concat([df, new_row], ignore_index=True)
-            #wandb.log({image_name: wandb_image})
-        wandb.log({"table": wandb.Table(dataframe=df)})
-        wandb.finish()
-
-label(input_folder='images', output_folder='results')
+if __name__ == "__main__":
+    # Example usage
+    results_df = caption_and_ground_images(
+        input_folder='images',
+        output_folder='results',
+        wandb_project='Florence2',
+        wandb_group='wood_captioning'
+    )
+    
+    print("\nSample Results:")
+    print(results_df[['image_name', 'caption', 'num_detections']].head())
