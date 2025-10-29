@@ -26,7 +26,4 @@ runs_df = pd.DataFrame({
     "name": name_list
     })
 
-#take the Tag column with  entries like config: /zhome/4a/b/137804/Desktop/autolbl/config.json, group: None, model: Qwen, nms: no_nms, reload: False, sahi: False, save_images: False, section: wood, tag: defect, wandb: True
-# and extract model, nms, reload, sahi, save_images, section, tag
-
 runs_df.to_csv("project.csv")

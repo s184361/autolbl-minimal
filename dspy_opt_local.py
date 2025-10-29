@@ -8,7 +8,7 @@ from io import BytesIO
 import json
 import supervision as sv
 from utils.check_labels import *
-from run_any2 import run_any_args
+from run_any3 import run_any_args
 
 import argparse
 import wandb
@@ -28,29 +28,43 @@ def label_images(config: None, gt_dataset: sv.DetectionDataset, prompt: str):
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     args = argparse.Namespace(
         config=config_path,
-        section="defects",
-        model="Florence",
+        section="local",
+        model="DINO",
         tag="default",
         sahi=False,
         reload=False,
         ontology=f"{prompt}: defect",
         wandb=False,
         save_images=False,
+        nms="no_nms",
+        group=None,
     )
     dataset = run_any_args(args)
 
-    confusion_matrix, acc, map_result = evaluate_detections(dataset, gt_dataset)
+    confusion_matrix, precision, recall, F1, map50, map50_95 = evaluate_detections(dataset, gt_dataset)
     # ompare_plot(dataset, gt_dataset)
     # extract true positives
-    print(f"Accuracy: {acc}")
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1: {F1}")
     # return "class", "TP", "FP", "FN", "Accuracy", "F1"
     gt_class = "defect"
     TP = confusion_matrix[0, 0] / confusion_matrix.sum()
     FP = confusion_matrix[0, 1] / confusion_matrix.sum()
     FN = confusion_matrix[1, 0] / confusion_matrix.sum()
-    F1 = 2 * TP / (2 * TP + FP + FN)
+    
+    # Handle arrays - take last value if multiple classes
+    if len(F1) > 1:
+        F1_score = F1[-1]
+    else:
+        F1_score = F1[0]
+    
+    if len(precision) > 1:
+        precision_score = precision[-1]
+    else:
+        precision_score = precision[0]
 
-    return gt_class, TP, FP, FN, acc[0], F1
+    return gt_class, TP, FP, FN, precision_score, F1_score
 
 
 class CheckAndRevisePrompt(dspy.Signature):
@@ -71,7 +85,7 @@ def main():
 
     # Initialize wandb
     wandb.login()
-    run = wandb.init(project="dspy")
+    run = wandb.init(project="dspy", mode="offline")
     # load_dotenv()
 
     # Optional
@@ -101,7 +115,7 @@ def main():
     gc.collect()
     torch.cuda.empty_cache()
     with open("config.json", "r") as f:
-        config = json.load(f)["defects"]
+        config = json.load(f)["local"]
     gt_dataset = load_dataset(
         config["GT_IMAGES_DIRECTORY_PATH"],
         config["GT_ANNOTATIONS_DIRECTORY_PATH"],
@@ -114,7 +128,7 @@ def main():
     current_prompt = initial_prompt
     best_prompt = initial_prompt
     best_score = 0.03425
-    max_iter = 20
+    max_iter = 5
     current_score = 0
     result = check_and_revise_prompt(
         desired_score=1.0,

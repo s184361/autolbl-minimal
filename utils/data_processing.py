@@ -1,6 +1,6 @@
 import yaml
 import os
-from config import HOME, GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH  # Explicit imports
+
 
 def defect_annotations(gt_annotations_directory_path, gt_data_yaml_path, defect_annotation_path):
     """
@@ -44,8 +44,23 @@ def defect_annotations(gt_annotations_directory_path, gt_data_yaml_path, defect_
                 with open(new_file_path, "w") as new_file:
                     new_file.writelines(defect_lines)
 
+
 def main():
-    def_anno_path = f"{HOME}/data/defect_anno"
-    defect_annotations(GT_ANNOTATIONS_DIRECTORY_PATH, GT_DATA_YAML_PATH, def_anno_path)
+    """
+    Example usage - update paths as needed for your setup.
+    """
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Convert multi-class annotations to defect-only annotations")
+    parser.add_argument("--annotations_dir", required=True, help="Path to ground truth annotations directory")
+    parser.add_argument("--data_yaml", required=True, help="Path to data.yaml file")
+    parser.add_argument("--output_dir", required=True, help="Path to save defect-only annotations")
+    
+    args = parser.parse_args()
+    
+    defect_annotations(args.annotations_dir, args.data_yaml, args.output_dir)
+    print(f"Defect annotations created in: {args.output_dir}")
+
+
 if __name__ == "__main__":
     main()

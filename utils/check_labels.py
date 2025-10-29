@@ -144,7 +144,11 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
     #calculate class precision and recall
     precision = confusion_matrix.diagonal() / confusion_matrix.sum(axis=0) #sums over rows
     recall = confusion_matrix.diagonal() / confusion_matrix.sum(axis=1) #sums over columns
-    F1 = 2 * (precision * recall) / (precision + recall)
+    # Handle division by zero: if precision + recall = 0, F1 = 0
+    with np.errstate(divide='ignore', invalid='ignore'):
+        F1 = 2 * (precision * recall) / (precision + recall)
+        F1 = np.nan_to_num(F1, nan=0.0)  # Replace NaN with 0
+    
     #if more than 1 class, add overall precision and recall
     if len(gt_dataset.classes) > 1:
         #add overall precision and recall
@@ -152,9 +156,22 @@ def evaluate_detections(dataset, gt_dataset, results_dir="results"):
         #sum last row
         FP = confusion_matrix[-1,:].sum()
         FN = confusion_matrix[:,-1].sum()
-        precision[-1] = TP/(TP+FP)
-        recall[-1] = TP/(TP+FN)
-        F1[-1] = 2 * (precision[-1] * recall[-1]) / (precision[-1] + recall[-1])
+        
+        # Handle division by zero for overall metrics
+        if (TP + FP) > 0:
+            precision[-1] = TP/(TP+FP)
+        else:
+            precision[-1] = 0.0
+            
+        if (TP + FN) > 0:
+            recall[-1] = TP/(TP+FN)
+        else:
+            recall[-1] = 0.0
+            
+        if (precision[-1] + recall[-1]) > 0:
+            F1[-1] = 2 * (precision[-1] * recall[-1]) / (precision[-1] + recall[-1])
+        else:
+            F1[-1] = 0.0
 
     print(f"Precision: {precision}")
     print(f"Recall: {recall}")
