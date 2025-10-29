@@ -173,6 +173,7 @@ class DSPyPromptOptimizer:
             ontology=f"{prompt}",
             wandb=False,
             save_images=False,
+            nms="no_nms",
         )
 
         # Run detection on images
