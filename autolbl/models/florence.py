@@ -13,8 +13,9 @@ from autodistill.helpers import load_image
 from peft import LoraConfig, get_peft_model
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
+from torch.optim import AdamW
 from tqdm import tqdm
-from transformers import (AdamW, AutoModelForCausalLM, AutoProcessor,
+from transformers import (AutoModelForCausalLM, AutoProcessor,
                           get_scheduler)
 from autodistill.helpers import load_image, split_data
 from autolbl.ontology.embedding import EmbeddingOntologyImage
