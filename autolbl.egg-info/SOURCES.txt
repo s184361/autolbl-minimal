@@ -9,6 +9,9 @@ autolbl.egg-info/dependency_links.txt
 autolbl.egg-info/entry_points.txt
 autolbl.egg-info/requires.txt
 autolbl.egg-info/top_level.txt
+autolbl/cli/__init__.py
+autolbl/cli/infer.py
+autolbl/cli/prepare.py
 autolbl/data/__init__.py
 autolbl/data/converters.py
 autolbl/data/dataset_prep.py
