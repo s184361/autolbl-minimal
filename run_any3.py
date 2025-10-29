@@ -277,8 +277,6 @@ def run_any_args(args,loaded_model=None):
         table = wandb.Table(columns=["prompt", "caption"])
         for key, value in ont_list.items():
             table.add_data(key, value)
-        # Log the table
-        #wandb.log({"Prompt Table": table})
     except:
         print("No wandb")
 
@@ -313,11 +311,9 @@ def run_any_args(args,loaded_model=None):
         wandb.log({"dataset_size": len(dataset)})
     except:
         pass
-    # Plot annotated images
 
     # Evaluate the dataset
     print(config['GT_IMAGES_DIRECTORY_PATH'], config['GT_ANNOTATIONS_DIRECTORY_PATH'], config['GT_DATA_YAML_PATH'])
-
 
     # Finish the wandb run
     if args.wandb:

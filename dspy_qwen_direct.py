@@ -1,5 +1,12 @@
-import dspy
 import os
+
+# Move HuggingFace cache to D: drive BEFORE importing transformers (C: drive is full)
+os.environ["HF_HOME"] = "D:/huggingface_cache"
+os.environ["TRANSFORMERS_CACHE"] = "D:/huggingface_cache/transformers"
+os.environ["HF_HUB_CACHE"] = "D:/huggingface_cache/hub"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+import dspy
 from PIL import Image
 import json
 import supervision as sv
@@ -17,11 +24,6 @@ from utils.check_labels import set_one_class, check_classes
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 from autodistill.detection import CaptionOntology
-
-# Move HuggingFace cache to D: drive (C: drive is full)
-os.environ["HF_HOME"] = "D:/huggingface_cache"
-os.environ["TRANSFORMERS_CACHE"] = "D:/huggingface_cache/transformers"
-os.environ["HF_HUB_CACHE"] = "D:/huggingface_cache/hub"
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 

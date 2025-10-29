@@ -11,8 +11,14 @@
         "DATASET_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset",
         "RESULTS_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/results",
         "SAMPLE_SIZE": 6,
-        "SAMPLE_GRID_SIZE": [3, 2],
-        "SAMPLE_PLOT_SIZE": [16, 16],
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
     },
     "bottle": {
@@ -27,8 +33,14 @@
         "DATASET_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset",
         "RESULTS_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/results",
         "SAMPLE_SIZE": 6,
-        "SAMPLE_GRID_SIZE": [3, 2],
-        "SAMPLE_PLOT_SIZE": [16, 16],
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
         "PROMPT": "defects are irregularities that can affect the appearance, strength, or utility"
     },
     "hpc": {
@@ -43,8 +55,14 @@
         "DATASET_DIR_PATH": "/work3/s184361/data/dataset",
         "RESULTS_DIR_PATH": "/work3/s184361/data/results",
         "SAMPLE_SIZE": 6,
-        "SAMPLE_GRID_SIZE": [3, 2],
-        "SAMPLE_PLOT_SIZE": [16, 16],
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
         "PROMPT": "defects are irregularities that can affect the material's appearance, strength, or utility"
     },
     "wood": {
@@ -59,8 +77,14 @@
         "DATASET_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/dataset",
         "RESULTS_DIR_PATH": "/zhome/4a/b/137804/Desktop/autolbl/results",
         "SAMPLE_SIZE": 6,
-        "SAMPLE_GRID_SIZE": [3, 2],
-        "SAMPLE_PLOT_SIZE": [16, 16],
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
         "PROMPT": "defects are irregularities that can affect the appearance, strength, or utility"
     },
     "work3": {
@@ -75,8 +99,14 @@
         "DATASET_DIR_PATH": "/work3/s184361/data/dataset",
         "RESULTS_DIR_PATH": "/work3/s184361/data/results",
         "SAMPLE_SIZE": 6,
-        "SAMPLE_GRID_SIZE": [3, 2],
-        "SAMPLE_PLOT_SIZE": [16, 16],
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
     },
     "work3_defects": {
@@ -91,8 +121,14 @@
         "DATASET_DIR_PATH": "/work3/s184361/data/dataset",
         "RESULTS_DIR_PATH": "/work3/s184361/data/results",
         "SAMPLE_SIZE": 6,
-        "SAMPLE_GRID_SIZE": [3, 2],
-        "SAMPLE_PLOT_SIZE": [16, 16],
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
     },
     "defects": {
@@ -204,6 +240,49 @@
             16
         ],
         "PROMPT": "defects spots anomalies misscoloration irregularities"
-
+    },
+    "local_wood": {
+        "HOME": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl",
+        "IMAGE_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/wood/images",
+        "ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/labels",
+        "IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/images",
+        "DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/data.yaml",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/wood/yolo_annotations",
+        "GT_IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/wood/images",
+        "GT_DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/wood/data.yaml",
+        "DATASET_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset",
+        "RESULTS_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/results",
+        "SAMPLE_SIZE": 6,
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
+        "PROMPT": "defects are irregularities that can affect the appearance, strength, or utility"
+    },
+    "local_Images1": {
+        "HOME": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl",
+        "IMAGE_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/Images1_processed/images",
+        "ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/labels",
+        "IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/train/images",
+        "DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset/data.yaml",
+        "GT_ANNOTATIONS_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/Images1_processed/yolo_annotations",
+        "GT_IMAGES_DIRECTORY_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/Images1_processed/images",
+        "GT_DATA_YAML_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/data/Images1_processed/data.yaml",
+        "DATASET_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/dataset",
+        "RESULTS_DIR_PATH": "D:/Data/dtu/OneDrive - Danmarks Tekniske Universitet/MSc MMC/5th semester/Thesis/autolbl/results",
+        "SAMPLE_SIZE": 6,
+        "SAMPLE_GRID_SIZE": [
+            3,
+            2
+        ],
+        "SAMPLE_PLOT_SIZE": [
+            16,
+            16
+        ],
+        "PROMPT": "defects spots anomalies misscoloration irregularities"
     }
 }

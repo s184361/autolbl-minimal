@@ -59,12 +59,8 @@ def convert_masks_to_yolo(input_dir, output_dir, classes):
                 scaled_height = (y_max - y_min)
                 x_center = (x_min + scaled_width / 2)
                 y_center = (y_min + scaled_height / 2)
-                # Normalize polygon coordinates to be between 0 and 1
-                polygon = np.array(polygon, dtype=np.float32)
-                polygon[:, 0] /= width  # Normalize x coordinates
-                polygon[:, 1] /= height  # Normalize y coordinates
-                flattened_polygon = polygon.flatten().tolist()
-                annotation = [class_id, x_center, y_center, scaled_width, scaled_height] + flattened_polygon
+                # Only save bounding box format (no polygon coordinates)
+                annotation = [class_id, x_center, y_center, scaled_width, scaled_height]
                 annotations.append(annotation)
 
             # Write YOLO annotations to a text file
@@ -258,42 +254,8 @@ def convert_yolo_to_florence(image_dir, annotation_dir, output_dir, classes=None
 
         print(f"Converted YOLO annotations for {annotation_file} to Florence format")
 
-if __name__ == "__main__":
-    
-    # Load config.json to get the data folder structure
-    config_path = "config.json"
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    
-    # Get the local data folder path
-    base_dir = config["local"]["data_folder"]
-    
-    # Split data into train/valid/test
-    split_data(base_dir=base_dir, split_ratio=0.8)
-    
-    # Convert YOLO annotations to COCO format for train and valid sets
-    dir_list = ["train", "valid"]
-    for split_dir in dir_list:
-        image_dir = os.path.join(base_dir, split_dir, "images")
-        annotation_dir = os.path.join(base_dir, split_dir, "labels")
-        yaml_dir = os.path.join(base_dir, "data.yaml")
-        florence_output_dir = os.path.join(base_dir, "florence_annotations", split_dir)
-        
-        # Create output directory if it doesn't exist
-        if not os.path.exists(florence_output_dir):
-            os.makedirs(florence_output_dir)
-        
-        # Load the dataset
-        dataset = sv.DetectionDataset.from_yolo(
-            images_directory_path=image_dir,
-            annotations_directory_path=annotation_dir,
-            data_yaml_path=yaml_dir
-        )
-        
-        # Save as COCO format
-        dataset.as_coco(
-            images_directory_path=florence_output_dir,
-            annotations_path=os.path.join(base_dir, "florence_annotations", f"{split_dir}_annotations.coco.json")
-        )
-        
-        print(f"Converted {split_dir} set to COCO format")
+# Note: The __main__ section has been removed as this functionality
+# is now available through the unified prepare_datasets.py script.
+# Use: python prepare_datasets.py --dataset wood
+# 
+# The functions in this file are still available as a library for reuse.
