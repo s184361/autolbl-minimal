@@ -348,31 +348,43 @@ healthchecksdb
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 
+# Project-specific: Data and output directories
 data/
 images/
-.venv/
 dataset/
-GT_WOOD/
-.vscode/
-dataset/
-runs/
-*.pt
+samples/
+wandb/
+Image_Embeddings/
+croped_images/
+croped_images3/
+optimized_prompts/
 results/
-temp.jpeg
-*.lock
-*.toml
-# Start of Selection
 */results_*
-wandb
-croped_images3
-temp.jpeg
-model_checkpoints
+GT_WOOD/
+runs/
 logs/
+model_checkpoints/
 OpenGroundingDino/
 aquarium_data/
 input_params/
 images_local/
+hpc/tmp/
+
+# Python virtual environment
+.venv/
+
+# VS Code settings
+.vscode/
+
+# Model weights and checkpoints
+*.pt
+
+# Temporary files
+temp.jpeg
+*.lock
+*.toml
+
+# Output files
 *.err
 *.out
 *.csv
-hpc/tmp/

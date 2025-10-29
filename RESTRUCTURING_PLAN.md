@@ -83,6 +83,7 @@ This document outlines the plan to restructure the AutoLbl codebase to follow be
 2. Add Sphinx configuration (`conf.py`)
 3. Create API documentation structure
 4. Add example notebooks to `docs/source/notebooks/`
+5. **Note:** No Makefile needed - build docs using `sphinx-build` directly
 
 ### Phase 5: Create Tests
 1. Create `tests/` directory with:
@@ -99,9 +100,9 @@ This document outlines the plan to restructure the AutoLbl codebase to follow be
 ### Phase 7: Update Configuration Files
 1. Update `pyproject.toml` with new structure
 2. Add `setup.py` for development install
-3. Update `.gitignore` to exclude data folders
-4. Create `CONTRIBUTION.md`
-5. Add `LICENSE` file
+3. Update `.gitignore` to properly exclude data folders
+4. Create `CONTRIBUTION.md` (optional - for thesis may not be needed)
+5. Add `LICENSE` file (optional - only if planning public distribution)
 
 ### Phase 8: Update Documentation
 1. Update README.md with new structure
@@ -136,15 +137,37 @@ This document outlines the plan to restructure the AutoLbl codebase to follow be
 - [ ] Phase 1: Create directories
 - [ ] Phase 2: Move and rename files
 - [ ] Phase 3: Move scripts
-- [ ] Phase 4: Setup docs structure
+- [ ] Phase 4: Setup docs structure (no Makefile needed)
 - [ ] Phase 5: Create test structure
 - [ ] Phase 6: Update all imports
 - [ ] Phase 7: Update config files
 - [ ] Phase 8: Update documentation
 - [ ] Delete obsolete files
 - [ ] Test all functionality
-- [ ] Update .gitignore
+- [ ] ✅ Update .gitignore (COMPLETED - now properly excludes data/, dataset/, samples/, wandb/, Image_Embeddings/, croped_images/, optimized_prompts/, results/, *.pt)
 - [ ] Commit and push changes
+
+## Notes About Optional Files
+
+### LICENSE
+- **Not required** for a thesis project
+- Only add if you plan to:
+  - Make the repository fully public
+  - Allow others to use/modify the code
+  - Accept external contributions
+- Common choices: MIT (permissive) or Apache-2.0 (with patent protection)
+
+### CONTRIBUTION.md
+- **Not required** for a thesis project
+- Add only if accepting external contributions
+- Your README already states "not currently accepting external contributions"
+
+### Makefile
+- **Not needed** on Windows
+- Use `sphinx-build` command directly:
+  ```bash
+  sphinx-build -b html docs/source docs/build
+  ```
 
 ## Migration Command Summary
 
@@ -187,6 +210,8 @@ del opt_ax_parallel.py
 
 ## Notes
 - Keep `config.json` in root for backward compatibility
-- Data folders stay in root but add to .gitignore
+- Data folders stay in root but are properly .gitignored
 - Old utils/ folder can be deleted after migration
 - Create git branches for safe migration
+- **Florence2_cap.py cleaned up and ready to move to examples/**
+- **.gitignore updated to properly exclude all data/output folders**
