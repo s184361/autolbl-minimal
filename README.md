@@ -4,7 +4,7 @@
 
 AutoLbl is a framework for automatic image annotation using vision-language models (VLMs). Its primary purpose is to facilitate efficient defect detection and classification on industrial inspection datasets. AutoLbl uses state-of-the-art models like Florence-2, Grounding DINO, and Qwen for zero-shot object detection and automatic annotation generation. AutoLbl is currently developed and maintained by Jędrzej Kolbert at DTU (Danmarks Tekniske Universitet) as part of an MSc thesis project.
 
-Initially, AutoLbl was designed specifically for wood defect detection and quality control in industrial settings, particularly enabling automated labeling of defects like knots, cracks, resin pockets, and color variations. The system integrates multiple vision models and provides flexible ontology-based detection, allowing users to define custom defect categories through natural language descriptions. However, AutoLbl's detection system and model composition are general, which means they can be easily adapted for use in other domains. The framework has been successfully tested on multiple datasets including MVTec AD (wood, bottle, tire categories) and the Zenodo wood defect dataset.
+Initially, AutoLbl was designed specifically for wood defect detection and quality control in industrial settings, particularly enabling automated labeling of defects like knots, cracks, resin pockets, and color variations. The system integrates multiple vision models and provides flexible ontology-based detection, allowing users to define custom defect categories through natural language descriptions. However, AutoLbl's detection system and model composition are general, which means they can be easily adapted for use in other domains. The framework has been successfully tested on multiple datasets including MVTec AD (wood, bottle) and the Zenodo wood defect dataset.
 
 ## Features
 
@@ -342,31 +342,6 @@ All optimization runs are automatically logged to W&B (if enabled):
 5. **Use offline W&B mode**: Avoid authentication issues during optimization
 6. **Balance exploration vs exploitation**: More iterations = better results but longer runtime
 
-### Advanced: Embedding-Based Optimization
-
-AutoLbl also includes embedding-based anomaly detection in `experiments/embedding/`:
-
-```python
-from experiments.embedding.meta_emb_anomaly import PromptOptimizer
-
-# Uses MetaCLIP embeddings for optimization
-optimizer = PromptOptimizer(
-    config_path="config.json",
-    # ... configuration ...
-)
-```
-
-This approach uses semantic embeddings to guide the optimization process, often leading to more meaningful prompts.
-
-### Comparison of Optimization Methods
-
-| Method | Algorithm | Best For | Speed | Global Search | Parameters |
-|--------|-----------|----------|-------|---------------|------------|
-| **SciPy COBYLA** | Constrained optimization | Fast local search | ⚡⚡⚡ | ❌ | Low |
-| **SciPy Differential Evolution** | Genetic algorithm | Global optimization | ⚡ | ✅ | Medium |
-| **SciPy CMA-ES** | Evolution strategy | High-dimensional | ⚡⚡ | ✅ | Medium |
-| **Ax Bayesian** | Bayesian optimization | Sample-efficient | ⚡⚡ | ✅ | High |
-
 ### Quick Reference
 
 ```bash
@@ -413,7 +388,7 @@ AutoLbl uses a flexible ontology system where you can define classes using natur
 --ontology "color: color, combined: combined, hole: hole, liquid: liquid, scratch: scratch"
 
 # Descriptive ontology
---ontology "a knot in wood: knot, wood crack: crack, resin pocket: resin"
+--ontology "a knot in wood, wood crack, resin pocket"
 
 # Bag-of-words mode (automatic class extraction)
 --ontology "BAG_OF_WORDS"
