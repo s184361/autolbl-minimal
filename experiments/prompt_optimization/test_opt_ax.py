@@ -33,15 +33,20 @@ def prase_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_trials', type=int, default=1)
     parser.add_argument('--config', type=str, default='config.json')
-    
+
     parser.add_argument('--randomize', type=bool, default=False)
     parser.add_argument('--initial_prompt', type=str, default='[PAD] [PAD] [PAD]')
     parser.add_argument('--ds_name', type=str, default='local_wood')
     parser.add_argument('--model', type=str, default='DINO')
     parser.add_argument('--optimizer', type=str, default='ax')
     parser.add_argument('--encoding_type', type=str, default='bert')
-    parser.add_argument('--wandb-mode', type=str, choices=['online', 'offline', 'disabled'], default='online',
-                        help='WandB mode: online (requires login), offline (local logging), disabled (no wandb)')
+    parser.add_argument(
+        "--wandb-mode",
+        type=str,
+        choices=["online", "offline", "disabled"],
+        default="offline",
+        help="WandB mode: online (requires login), offline (local logging), disabled (no wandb)",
+    )
     return parser.parse_args()
 
 class PromptOptimizer:
@@ -214,14 +219,15 @@ class PromptOptimizer:
         if not self.check_classes(dataset):
             raise ValueError("Dataset classes are incorrect")
         if eval_metrics:
-            confusion_matrix, acc, _ = evaluate_detections(dataset, self.gt_dataset)
-            acc = acc[0]
+            confusion_matrix, precision, recall, F1, map50, map50_95 = evaluate_detections(dataset, self.gt_dataset, log_wandb=False)
+            acc = precision[0]
             print(f"Accuracy: {acc}")
             gt_class = "defect"
             TP = confusion_matrix[0, 0] / confusion_matrix.sum()
             FP = confusion_matrix[0, 1] / confusion_matrix.sum()
             FN = confusion_matrix[1, 0] / confusion_matrix.sum()
-            F1 = 2 * TP / (2 * TP + FP + FN)
+            # Use F1 from evaluate_detections (already calculated correctly)
+            F1 = F1[0]  # Get F1 for first class
         else:
             gt_class = "defect"
             TP = None
@@ -371,9 +377,9 @@ class PromptOptimizer:
                                 'acc': [acc],
                                 'F1': [F1],
                                 'total_loss': [total_loss],
-                                "loss_giou": [loss_output["loss_giou"]],
-                                "bbox_loss": [loss_output["loss_bbox"]],
-                                "class_loss": [loss_output['loss_class']],
+                                "loss_giou": [loss_giou],
+                                "bbox_loss": [loss_bbox],
+                                "class_loss": [loss_class],
                                 "run_url": [wandb.Html(f"<a href='{self.run_url}'>{self.run.id}</a>")]})
                                  
         self.pd_prompt_table = pd.concat([self.pd_prompt_table, new_row], ignore_index=True)
@@ -448,7 +454,6 @@ class PromptOptimizer:
         # Make sure we return a native Python float, not a tensor
         loss_value = self.objective(x_np)
         return {"loss": float(loss_value)}
-
 
 
 if __name__ == "__main__":
