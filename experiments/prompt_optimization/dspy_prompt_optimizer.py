@@ -811,7 +811,7 @@ def main():
         # Set up Qwen model
         from autolbl.models.qwen import Qwen25VL
         from autodistill.detection import CaptionOntology
-        q25 = Qwen25VL(ontology=CaptionOntology({"defect":"defect"}),hf_token="os.getenv("HF_TOKEN", "")")
+        q25 = Qwen25VL(ontology=CaptionOntology({"defect":"defect"}), hf_token=os.getenv("HF_TOKEN", ""))
     else:
         q25 = None
     # Create optimizer and run the optimization pipeline

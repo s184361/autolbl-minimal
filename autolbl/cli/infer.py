@@ -263,7 +263,7 @@ def run_any_args(args,loaded_model=None):
     elif args.model == "Qwen":
         from autolbl.models.qwen import Qwen25VL
         print("Load Qwen model")
-        base_model = Qwen25VL(ontology=CaptionOntology(ont_list),hf_token="os.getenv("HF_TOKEN", "")")
+        base_model = Qwen25VL(ontology=CaptionOntology(ont_list), hf_token=os.getenv("HF_TOKEN", ""))
 
     # Log model settings
     try:

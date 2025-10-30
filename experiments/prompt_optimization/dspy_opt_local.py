@@ -89,9 +89,7 @@ def main():
 
     # Optional
     os.environ["OPENAI_API_KEY"] = "your_openai_api_key"
-    os.environ["ANTHROPIC_API_KEY"] = (
-        "os.getenv("ANTHROPIC_API_KEY", "")"
-    )
+    os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY", "")
     try:
         process = subprocess.Popen(["ollama", "run", "deepseek-r1:1.5b"])
     except:
