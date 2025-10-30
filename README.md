@@ -70,8 +70,13 @@ autolbl/
 │   └── core.py                 # Core utilities
 ├── examples/                   # Usage examples
 ├── experiments/                # Experimental scripts
-│   ├── prompt_optimization/    # DSPy prompt optimization
-│   └── embedding/              # Embedding experiments
+│   ├── prompt_optimization/    # Prompt optimization experiments
+│   │   ├── scipy_opt.py        # SciPy-based optimization
+│   │   ├── test_opt_ax.py      # Ax platform optimization
+│   │   └── ...                 # Other optimization scripts
+│   └── embedding/              # Embedding-based experiments
+│       ├── meta_emb_anomaly.py # MetaCLIP embedding optimization
+│       └── ...                 # Other embedding experiments
 ├── config.json                 # Configuration file
 ├── pyproject.toml              # Package configuration
 └── setup.py                    # Setup script
@@ -177,6 +182,209 @@ print(f"Precision: {precision}")
 print(f"Recall: {recall}")
 print(f"F1 Score: {f1}")
 print(f"mAP@50: {map50}")
+```
+
+## Prompt Optimization
+
+AutoLbl includes advanced **prompt optimization** capabilities to automatically find the best prompts for your detection task. This is a key feature that sets AutoLbl apart from other labeling frameworks.
+
+### Overview
+
+The prompt optimization system uses black-box optimization algorithms to search for optimal text prompts that maximize detection performance. Instead of manually crafting prompts, the system automatically explores the prompt space and finds descriptions that work best with your vision-language model.
+
+### Available Optimizers
+
+AutoLbl provides two optimization frameworks in `experiments/prompt_optimization/`:
+
+#### 1. **SciPy-based Optimization** (`scipy_opt.py`)
+
+Uses SciPy's optimization algorithms with character-level prompt encoding:
+
+- **COBYLA**: Constrained optimization by linear approximation
+- **Differential Evolution**: Global optimization using genetic algorithms
+- **CMA-ES**: Covariance Matrix Adaptation Evolution Strategy
+
+```bash
+# Run SciPy optimizer with COBYLA
+python experiments/prompt_optimization/scipy_opt.py \
+  --wandb-mode offline \
+  --optimizer COBYLA \
+  --maxiter 50
+
+# Run with differential evolution
+python experiments/prompt_optimization/scipy_opt.py \
+  --wandb-mode offline \
+  --optimizer differential_evolution \
+  --maxiter 100
+
+# Run with CMA-ES
+python experiments/prompt_optimization/scipy_opt.py \
+  --wandb-mode offline \
+  --optimizer CMA-ES \
+  --maxiter 50
+```
+
+#### 2. **Ax Platform Optimization** (`test_opt_ax.py`)
+
+Uses Meta's Ax platform for adaptive experimentation:
+
+- **Bayesian Optimization**: Efficient global optimization
+- **Multi-objective optimization**: Balance multiple metrics
+- **Parallel evaluation**: Support for concurrent trials
+
+```bash
+# Run Ax optimizer
+python experiments/prompt_optimization/test_opt_ax.py \
+  --wandb-mode offline \
+  --n_trials 20
+
+# Multiple optimization runs
+python experiments/prompt_optimization/test_opt_ax.py \
+  --wandb-mode offline \
+  --n_trials 50
+```
+
+### Key Features
+
+1. **Multiple Encoding Strategies**
+   - Character-level encoding (ASCII)
+   - Token-level encoding (BERT tokenizer)
+   - Custom initial prompts
+
+2. **Flexible Loss Functions**
+   - DETR-based loss (detection-specific)
+   - F1-based loss (fallback for older ultralytics versions)
+   - Automatic loss function selection
+
+3. **W&B Integration**
+   - Track optimization progress in real-time
+   - Visualize prompt evolution
+   - Compare different optimization runs
+   - Modes: `online`, `offline`, or `disabled`
+
+4. **Dataset Support**
+   - MVTec AD (wood, bottle, tire)
+   - Zenodo Images1
+   - Custom datasets via config.json
+
+### Usage Example
+
+```python
+from experiments.prompt_optimization.scipy_opt import PromptOptimizer
+
+# Initialize optimizer
+optimizer = PromptOptimizer(
+    config_path="config.json",
+    encoding_type="BERT",
+    randomize=False,
+    model="Florence",
+    optimizer="COBYLA",
+    ds_name="wood",
+    initial_prompt="wood defect",
+    wandb_mode="offline"
+)
+
+# Run optimization
+optimizer.optimize()
+
+# Get best prompt
+best_prompt = optimizer.best_prompt
+print(f"Optimized prompt: {best_prompt}")
+```
+
+### Configuration Options
+
+All optimization scripts support these command-line arguments:
+
+- `--config`: Path to config.json (default: `config.json`)
+- `--encoding_type`: Encoding strategy: `ASCII` or `BERT` (default: `BERT`)
+- `--randomize`: Randomize initial prompt (default: `False`)
+- `--model`: VLM model: `Florence`, `DINO`, `Qwen` (default: `Florence`)
+- `--optimizer`: Optimization algorithm (SciPy) or method (Ax)
+- `--ds_name`: Dataset name: `wood`, `bottle`, `tire`, `images1`
+- `--initial_prompt`: Starting prompt (default: `"defect"`)
+- `--wandb-mode`: W&B mode: `online`, `offline`, `disabled` (default: `online`)
+- `--maxiter`: Max iterations for SciPy (default: `100`)
+- `--n_trials`: Number of trials for Ax (default: `20`)
+
+### Loss Functions
+
+The optimization system uses specialized loss functions that consider detection quality:
+
+**DETR Loss** (when available):
+```python
+total_loss = 5 * loss_class + loss_bbox / 1000 + loss_giou
+```
+
+**F1 Loss** (fallback):
+```python
+total_loss = 1.0 - F1_score
+```
+
+Both loss functions automatically handle tensor-to-scalar conversions and work seamlessly with different ultralytics versions.
+
+### Experiment Tracking
+
+All optimization runs are automatically logged to W&B (if enabled):
+
+- **Prompt evolution**: Track how prompts change over iterations
+- **Loss curves**: Visualize convergence
+- **Detection metrics**: Precision, recall, F1, mAP per iteration
+- **Confusion matrices**: See which classes improve
+- **Best parameters**: Automatically saved at end of run
+
+### Tips for Best Results
+
+1. **Start with a good initial prompt**: Use domain knowledge to provide a reasonable starting point
+2. **Choose appropriate encoding**: BERT encoding often works better than ASCII for semantic similarity
+3. **Monitor early iterations**: Stop early if loss plateaus
+4. **Try multiple optimizers**: Different algorithms may find different local optima
+5. **Use offline W&B mode**: Avoid authentication issues during optimization
+6. **Balance exploration vs exploitation**: More iterations = better results but longer runtime
+
+### Advanced: Embedding-Based Optimization
+
+AutoLbl also includes embedding-based anomaly detection in `experiments/embedding/`:
+
+```python
+from experiments.embedding.meta_emb_anomaly import PromptOptimizer
+
+# Uses MetaCLIP embeddings for optimization
+optimizer = PromptOptimizer(
+    config_path="config.json",
+    # ... configuration ...
+)
+```
+
+This approach uses semantic embeddings to guide the optimization process, often leading to more meaningful prompts.
+
+### Comparison of Optimization Methods
+
+| Method | Algorithm | Best For | Speed | Global Search | Parameters |
+|--------|-----------|----------|-------|---------------|------------|
+| **SciPy COBYLA** | Constrained optimization | Fast local search | ⚡⚡⚡ | ❌ | Low |
+| **SciPy Differential Evolution** | Genetic algorithm | Global optimization | ⚡ | ✅ | Medium |
+| **SciPy CMA-ES** | Evolution strategy | High-dimensional | ⚡⚡ | ✅ | Medium |
+| **Ax Bayesian** | Bayesian optimization | Sample-efficient | ⚡⚡ | ✅ | High |
+
+### Quick Reference
+
+```bash
+# Quick test with 2 iterations (SciPy)
+python experiments/prompt_optimization/scipy_opt.py \
+  --wandb-mode offline --maxiter 2
+
+# Quick test with 2 trials (Ax)
+python experiments/prompt_optimization/test_opt_ax.py \
+  --wandb-mode offline --n_trials 2
+
+# Full optimization run (SciPy)
+python experiments/prompt_optimization/scipy_opt.py \
+  --wandb-mode online --optimizer CMA-ES --maxiter 100
+
+# Full optimization run (Ax)
+python experiments/prompt_optimization/test_opt_ax.py \
+  --wandb-mode online --n_trials 50
 ```
 
 ## Supported Models
