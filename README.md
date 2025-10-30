@@ -526,15 +526,6 @@ If you use the Zenodo Images1 dataset:
 }
 ```
 
-## Todo
-
-- [ ] Add support for segmentation models (SAM integration)
-- [ ] Implement active learning pipeline
-- [ ] Add model fine-tuning capabilities
-- [ ] Support for video/batch processing
-- [ ] Web interface for annotation review
-- [ ] Docker containerization
-
 ## Acknowledgments
 
 This work is built upon the [Roboflow Autodistill](https://github.com/autodistill/autodistill) library, which provides a unified framework for using foundation models to automatically label data for computer vision tasks. We gratefully acknowledge the Roboflow team for making their excellent tools available to the community.
